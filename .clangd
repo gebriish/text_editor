@@ -1,0 +1,6 @@
+CompileFlags:
+  Add:
+    - -std=c++11
+    - -Wno-undefined-internal
+Diagnostics:
+  UnusedIncludes: None
