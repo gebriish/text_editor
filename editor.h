@@ -77,6 +77,14 @@ list_from_buffer(Slice<T> buff)
 	};
 }
 
+generic(T) force_inline Slice<T>
+slice_from_list(List<T> list) {
+	return Slice<T> {
+		.raw = list.raw,
+		.len = list.len
+	};
+}
+
 generic(T) force_inline void
 append(List<T> *l, T value)
 {
@@ -289,5 +297,36 @@ funcdef void buffer_insert(Buffer *buffer, string s, Overflow *overflow = nullpt
 funcdef void buffer_delete(Buffer *buffer, u64 count);
 funcdef void buffer_move_cursor(Buffer *buffer, u64 count, Direction dir);
 funcdef Slice<string> buffer_as_lines(Buffer *buffer, Arena *allocator);
+
+//
+// ui.cpp
+//
+
+typedef u32 UI_Box_Flags;
+
+struct UI_Box {
+	UI_Box *first;
+	UI_Box *last;
+	UI_Box *next;
+	UI_Box *prev;
+	UI_Box *parent;
+};
+
+enum UI_Draw_Kind : u32 {
+	UI_Draw_Rect,
+	UI_Draw_Text,
+};
+
+struct UI_Draw {
+	UI_Draw_Kind kind;
+};
+
+struct UI_State {
+	Arena *arena;
+
+	Arena *build_arena;
+
+	UI_Box *root;
+};
 
 #endif

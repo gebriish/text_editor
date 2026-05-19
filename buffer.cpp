@@ -1,6 +1,14 @@
 #include "editor.h"
 
 funcdef void
+buffer__build_lines(Buffer *buffer)
+{
+	bytes data = slice_from_list(buffer->data);
+	for (u64 i=0; i<data.len; ++i) {
+	}
+}
+
+funcdef void
 buffer_make(Buffer *buffer, bytes data, Slice<Line> line_table)
 {
 	buffer->data = list_from_buffer(data);
