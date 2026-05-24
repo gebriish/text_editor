@@ -67,7 +67,6 @@ buffer_make(Buffer *buffer, bytes data, Slice<Line> line_table)
 	buffer->desired_column = 0;
 
 	buffer__build_lines(buffer);
-	
 }
 
 

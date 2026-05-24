@@ -44,6 +44,7 @@ global struct {
 funcdef void
 insert_and_handle_overflow(Buffer *buffer, string s)
 {
+
 	Overflow overflow = {};
 	buffer_insert(buffer, s, &overflow);
 
@@ -214,7 +215,6 @@ draw_buffer_view(Buffer *buffer, Rect region)
 					s32 width = 0;
 					utf8_decode(slice(line, cursor_offset, line.len), &width);
 					string cursor_char = slice(line, cursor_offset, cursor_offset + width);
-
 					draw_text(cursor_char, cursor_pos, Color::bg);
 				}
 			} else {
@@ -260,7 +260,27 @@ editor_update()
 			else if (input.key_flags & key_Backspace) buffer_delete(buf, 1, Direction_Left);
 			else if (c) {
 				string input = utf8_encode(c, editor.frame_arena);
+				bool move_back = false;
+
+				switch (c) {
+				case '\n': {
+					u64 line_index = buffer_line_at_index(buf, buf->cursor);
+					Range_U64 line_range = buffer_line_range(buf, line_index);
+					string data = string_from_bytes(slice_from_list(buf->data));
+					string current_line = slice(data, line_range.begin, line_range.end);
+
+					u64 i=0;
+					while(i < current_line.len && (current_line[i] == ' ' || current_line[i] == '\t'))
+						i += 1;
+
+					string indents = slice(current_line, 0, i);
+
+					input = string_concat(input, indents, editor.frame_arena);
+				} break;
+				}
+
 				insert_and_handle_overflow(buf, input);
+				if (move_back) buffer_move_cursor(buf, 1, Direction_Left);
 			}
 		} break;
 
@@ -274,7 +294,7 @@ editor_update()
 		command_palette_interface(input);
 	}
 
-	draw_quad({0, gfx.win->h - gfx.line_height}, {(f32) gfx.win->w, gfx.line_height}, Color::bg_alt);
+	draw_quad_rounded({0, gfx.win->h - gfx.line_height}, {(f32) gfx.win->w, gfx.line_height}, 5, Color::bg_alt);
 
 	string mode_string = string_format(editor.frame_arena, "-- %.*s --", s_fmt(MODE_STRING[editor.mode]));
 	draw_text(mode_string, {0, gfx.win->h - gfx.line_height}, Color::accent);
@@ -304,11 +324,6 @@ int main()
 		alloc_slice(editor.buffer_arena, u8, KB(512)),
 		alloc_slice(editor.buffer_arena, Line, 2048)
 	);
-
-	string input = string_from_bytes(platform_load_entire_file(S("main.cpp"), editor.frame_arena));
-	insert_and_handle_overflow(buf, input);
-
-	buf->cursor = 0;
 
 	u64 last_frame_time = platform_time_now();
 	for (bool quit = false; !quit;)

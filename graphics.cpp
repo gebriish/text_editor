@@ -253,7 +253,7 @@ graphics_init(const char *title, int width, int height, Arena *persist)
 		const float pixel_height = FONT_HEIGHT;
 
 		bytes bitmap    = alloc_slice(persist, u8, atlas_w * atlas_h);
-		bytes ttf_buffer = platform_load_entire_file(S("./jetbrains_mono.ttf"), persist);
+		bytes ttf_buffer = FALLBACK_FONT;
 
 		stbtt_InitFont(&gfx.font, ttf_buffer.raw, 0);
 
@@ -313,7 +313,7 @@ graphics_update(Frame_Input *input)
 
 	if (RGFW_window_shouldClose(gfx.win)) return true;
 
-	RGFW_waitForEvent(-1);
+	// RGFW_waitForEvent(-1);
 	RGFW_event event = {0};
 	while (RGFW_window_checkEvent(gfx.win, &event)) {
 		switch (event.type) {

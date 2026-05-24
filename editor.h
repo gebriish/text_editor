@@ -180,6 +180,30 @@ string_from_bytes(bytes b) {
 	};
 }
 
+force_inline rune
+get_closing_char(rune c) {
+	switch (c) {
+		case '(': return ')';
+		case '{': return '}';
+		case '[': return ']';
+		case '\'': return '\'';
+		case '"': return '"';
+	}
+	return '\0';
+}
+
+force_inline rune
+get_opening_char(rune c) {
+	switch (c) {
+		case ')': return '(';
+		case '}': return '{';
+		case ']': return '[';
+		case '\'': return '\'';
+		case '"': return '"';
+	}
+	return '\0';
+}
+
 force_inline u64
 align_up_power_2(u64 val, u64 alignment) {
 	return (((val) + (alignment) - 1) & ~((alignment) - 1));
@@ -242,6 +266,7 @@ funcdef void arena_free(Arena *arena, u64 loc = sizeof(Arena), bool rollback = f
 
 funcdef string string_format(Arena *arena, const char *fmt, ...);
 funcdef u64 string_count_lines(string s);
+funcdef string string_concat(string a, string b, Arena *arena);
 funcdef u64 string_column_count(string s, int indent_width = 4);
 
 funcdef rune   utf8_decode(string slice, int *width);
@@ -376,4 +401,8 @@ struct UI_State {
 	UI_Box *root;
 };
 
+
+
 #endif
+
+

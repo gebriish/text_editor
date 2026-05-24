@@ -258,3 +258,14 @@ string_column_count(string s, int indent_width)
 
 	return count;
 }
+
+funcdef string
+string_concat(string a, string b, Arena *arena)
+{
+	bytes data = alloc_slice(arena, u8, a.len + b.len);
+
+	memcpy(data.raw, a.raw, a.len);
+	memcpy(data.raw + a.len, b.raw, b.len);
+
+	return string_from_bytes(data);
+}
