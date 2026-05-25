@@ -51,6 +51,47 @@ platform_load_entire_file(string path, Arena *allocator)
 	return data;
 }
 
+funcdef bool
+platform_save_entire_file(string path, bytes data, Arena *scratch)
+{
+	Slice<char> cpath = alloc_slice(scratch, char, path.len + 1);
+	if (!cpath.raw) return false;
+
+	for (u64 i = 0; i < path.len; ++i) {
+		cpath[i] = (char)path[i];
+	}
+	cpath[path.len] = 0;
+
+	int fd = open(
+		cpath.raw,
+		O_WRONLY | O_CREAT | O_TRUNC,
+		0644
+	);
+
+	if (fd < 0) {
+		return false;
+	}
+
+	u64 total = 0;
+	while (total < data.len) {
+		ssize_t n = write(
+			fd,
+			data.raw + total,
+			data.len - total
+		);
+
+		if (n <= 0) {
+			close(fd);
+			return false;
+		}
+
+		total += (u64)n;
+	}
+
+	close(fd);
+	return true;
+}
+
 funcdef u64
 platform_time_now() {
 	struct timespec ts;

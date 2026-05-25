@@ -25,17 +25,6 @@ enum {
 	Uniform_Count,
 };
 
-enum : u16 {
-	Texture_White,
-	Texture_Font,
-	Texture_Count
-};
-
-enum : u8 {
-	Draw_Layer_Base,
-	Draw_Layer_Popup,
-};
-
 struct Vertex {
 	struct { s16 x, y; } pos;
 	struct { u16 u, v; } uv;   // normalized [0, MAX_U16] maps to [0.0, 1.0]
@@ -370,6 +359,21 @@ graphics_submit_draw()
 }
 
 
+funcdef vec2
+graphics_resolution()
+{
+	return vec2 {
+		(f32) gfx.win->w, (f32) gfx.win->h
+	};
+}
+
+funcdef f32
+graphics_line_height()
+{
+	return gfx.line_height;
+}
+
+
 force_inline bool
 rects_overlap(f32 ax, f32 ay, f32 aw, f32 ah, f32 bx, f32 by, f32 bw, f32 bh)
 {
@@ -487,7 +491,7 @@ draw_text(string s, vec2 start_pos, u32 color)
 
 		bool invalid = false;
 		if (c < FIRST_CHAR || c >= FIRST_CHAR + NUM_CHARS) {
-			c = NUM_CHARS + FIRST_CHAR - 1;
+			c = '?';
 			invalid = true;
 		}
 
@@ -512,7 +516,7 @@ draw_text(string s, vec2 start_pos, u32 color)
 			draw_quad(
 				pos,
 				dims,
-				invalid ? 0xFF0000FF : color,
+				invalid ? Color::error : color,
 				Texture_Font,
 				uv0,
 				uv1

@@ -217,12 +217,14 @@ string_format(Arena *arena, const char *fmt, ...)
 	vsnprintf((char *)buf.raw, len + 1, fmt, args);
 	va_end(args);
 
-	return { .raw = buf.raw, .len = (u64) len };
+	return { buf.raw, (u64) len };
 }
 
 funcdef u64
 string_count_lines(string s)
 {
+	if (s.len == 0) return 0;
+
 	u64 count = 0;
 	for (u64 i=0; i<s.len; ++i) {
 		if (s[i] == '\n') count += 1;
@@ -267,5 +269,127 @@ string_concat(string a, string b, Arena *arena)
 	memcpy(data.raw, a.raw, a.len);
 	memcpy(data.raw + a.len, b.raw, b.len);
 
+	return string_from_bytes(data);
+}
+
+
+funcdef u64
+string_find_first(string s, rune r)
+{
+	u64 i=0;
+	while (i < s.len) {
+		int width = 0;
+		rune codepoint = utf8_decode(slice(s, i, s.len), &width);
+		if (codepoint == r) return i;
+		i += width;
+	}
+	return s.len;
+}
+
+funcdef u64
+string_find_last(string s, rune r)
+{
+	s64 i = s64(s.len) - 1;
+
+	while (i >= 0) {
+		while (i >= 0 && utf8_continuation_byte(s[i])) {
+			i -= 1;
+		}
+
+		if (i < 0) break;
+
+		int width = 0;
+		rune codepoint = utf8_decode(slice(s, i, s.len), &width);
+
+		if (codepoint == r)
+			return u64(i);
+
+		i -= 1;
+	}
+
+	return s.len;
+}
+
+funcdef bool
+is_space(rune r)
+{
+	return r == ' ' || r == '\t' || r == '\n' || r == '\r';
+}
+
+funcdef string
+string_strip(string s)
+{
+	u64 begin = 0;
+	u64 end = s.len;
+
+	while (begin < end && is_space(s[begin])) begin += 1;
+	while (end > begin && is_space(s[end - 1])) end -= 1;
+
+	return slice(s, begin, end);
+}
+
+funcdef Slice<string>
+string_split(string original, Arena *arena)
+{
+	u64 count = 0;
+	bool in_token = false;
+
+	for (u64 i = 0; i < original.len; ++i)
+	{
+		if (is_space(original[i])) {
+			in_token = false;
+		}
+		else if (!in_token)
+		{
+			in_token = true;
+			count += 1;
+		}
+	}
+
+	Slice<string> result = alloc_slice(arena, string, count);
+
+	u64 index = 0;
+	u64 start = 0;
+
+	in_token = false;
+
+	for (u64 i = 0; i < original.len; ++i)
+	{
+		if (is_space(original[i]))
+		{
+			if (in_token)
+			{
+				result[index++] = slice(original, start, i);
+				in_token = false;
+			}
+		}
+		else if (!in_token)
+		{
+			start = i;
+			in_token = true;
+		}
+	}
+
+	if (in_token) {
+		result[index++] = slice(original, start, original.len);
+	}
+
+	return result;
+}
+
+funcdef bool
+string_equal(string a, string b)
+{
+	if (a.len != b.len) return false;
+	if (a.raw == b.raw) return true;
+
+	return memcmp(a.raw, b.raw, a.len) == 0;
+}
+
+funcdef string
+string_copy(string str, Arena *arena)
+{
+	bytes data = alloc_slice(arena, u8, str.len);
+	memcpy(data.raw, str.raw, str.len);
 	return string_from_bytes(data);
 }

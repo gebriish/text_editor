@@ -58,52 +58,58 @@ buffer__index_from_column(string s, u64 target_column, u64 tab_width = 4)
 	return s.len;
 }
 
-funcdef void
-buffer_make(Buffer *buffer, bytes data, Slice<Line> line_table)
-{
-	buffer->data = list_from_buffer(data);
-	buffer->lines = list_from_buffer(line_table);
-	buffer->cursor = 0;
-	buffer->desired_column = 0;
 
+funcdef void
+buffer_make(Buffer *buffer, u64 data_cap, u64 line_count, string path)
+{
+	MemZeroStruct(buffer);
+	buffer->arena = arena_new(GB(1));
+	buffer->path = string_copy(path, buffer->arena);
+	buffer->data = list_from_buffer(alloc_slice(buffer->arena, u8, data_cap));
+	buffer->lines = list_from_buffer(alloc_slice(buffer->arena, Line, line_count));
 	buffer__build_lines(buffer);
 }
 
 
 funcdef void
-buffer_insert(Buffer *buffer, string s, Overflow *overflow)
+buffer_deinit(Buffer *buffer)
 {
-	if (overflow) {
-		overflow->data_size = 0;
-		overflow->line_count = 0; // @TODO: later when building line table
-	}
+	arena_delete(buffer->arena);
+	MemZeroStruct(buffer);
+}
 
-	bool data_overflow = false;
-	bool line_table_overflow = false;
+funcdef void
+buffer_insert(Buffer *buffer, string s)
+{
+	if (!buffer) return;
 
 	u64 needed_data_len  = buffer->data.len + s.len;
 	if (needed_data_len > buffer->data.capacity) {
 		u64 required_size = Max(buffer->data.capacity * 2, needed_data_len * 2);
 
-		data_overflow = true;
-		
-		if (overflow) {
-			overflow->data_size = required_size;
-		}
+		bytes old_data = {
+			buffer->data.raw,
+			buffer->data.capacity,
+		};
+
+		bytes new_data = realloc_slice(buffer->arena, u8, old_data, required_size);
+		buffer->data.raw = new_data.raw;
+		buffer->data.capacity = new_data.len;
 	}
 
 	u64 needed_lines_len = string_count_lines(s) + buffer->lines.len;
 	if (needed_lines_len > buffer->lines.capacity) {
 		u64 required_size = Max(buffer->lines.capacity * 2, needed_lines_len * 2);
 
-		line_table_overflow = true;
+		bytes old_data = {
+			buffer->data.raw,
+			buffer->data.capacity
+		};
 
-		if (overflow) {
-			overflow->line_count = required_size;
-		}
+		bytes new_data = realloc_slice(buffer->arena, u8, old_data, required_size);
+		buffer->data.raw = new_data.raw;
+		buffer->data.capacity = new_data.len;
 	}
-
-	if (data_overflow || line_table_overflow) return;
 
 	bytes insert_data = { (u8 *) s.raw, s.len };
 	insert_slice(&buffer->data, buffer->cursor, insert_data);
@@ -117,6 +123,8 @@ buffer_insert(Buffer *buffer, string s, Overflow *overflow)
 funcdef void
 buffer_move_cursor(Buffer *buf, u64 amount, Direction dir, int tab_width)
 {
+	if (!buf) return;
+
 	switch (dir) {
 
 	case Direction_Left:
@@ -190,6 +198,8 @@ buffer_move_cursor(Buffer *buf, u64 amount, Direction dir, int tab_width)
 funcdef void
 buffer_delete(Buffer *buffer, u64 count, Direction direction)
 {
+	if (!buffer) return;
+
 	auto buf = &buffer->data;
 
 	if (count == 0 || buf->len == 0)
@@ -256,6 +266,8 @@ buffer_delete(Buffer *buffer, u64 count, Direction direction)
 funcdef Slice<string>
 buffer_as_lines(Buffer *buffer, Arena *allocator)
 {
+	if (!buffer) return {};
+
 	Slice<string> lines = alloc_slice(allocator, string, buffer->lines.len);
 	bytes data = slice_from_list(buffer->data);
 
@@ -277,6 +289,8 @@ buffer_as_lines(Buffer *buffer, Arena *allocator)
 funcdef Range_U64
 buffer_line_range(Buffer *buffer, u64 line_index)
 {
+	if (!buffer) return {};
+
 	u64 end = buffer->lines[line_index].index;
 	u64 begin = 0;
 	if (line_index != 0) begin = buffer->lines[line_index - 1].index + 1;
@@ -287,6 +301,8 @@ buffer_line_range(Buffer *buffer, u64 line_index)
 funcdef u64 
 buffer_line_at_index(Buffer *buffer, u64 array_index)
 {
+	if (!buffer) return 0;
+
 	Slice<Line> lines = slice_from_list(buffer->lines);
 	u64 lower = 0;
 	u64 higher = lines.len;

@@ -166,19 +166,12 @@ template <typename F> DeferImpl<F> defer_func(F &&f) { return DeferImpl<F>(forwa
 typedef u32 rune;
 typedef Slice<u8> bytes;
 typedef Slice<const u8> string;
-#define S(x) { .raw = (const u8 *) x, .len = (u64) (sizeof(x) - 1) }
+#define S(x) { (const u8 *) x, (u64) (sizeof(x) - 1) }
 #define s_fmt(s) (int) s.len, (char *) s.raw
 
 #define Byte_Swap_U32(x) ((u32) __builtin_bswap32(x))
 #define Hex(x) Byte_Swap_U32(x)
 
-force_inline string
-string_from_bytes(bytes b) {
-	return string {
-		(const u8 *) b.raw,
-		b.len
-	};
-}
 
 force_inline rune
 get_closing_char(rune c) {
@@ -247,7 +240,10 @@ struct Arena {
 #define MB(x) ((u64) x << 20)
 #define GB(x) ((u64) x << 30)
 
+#define MemZeroStruct(s) memset(s, 0, sizeof(*s))
+
 funcdef Arena *arena_new(u64 reserve);
+funcdef void arena_delete(Arena *arena);
 funcdef void *arena_alloc(Arena *arena, u64 size, u64 alignment);
 funcdef void *arena_realloc(Arena *arena, void *old_ptr, u64 old_size, u64 new_size, u64 alignment);
 funcdef void arena_free(Arena *arena, u64 loc = sizeof(Arena), bool rollback = false);
@@ -264,21 +260,47 @@ funcdef void arena_free(Arena *arena, u64 loc = sizeof(Arena), bool rollback = f
 // strings.cpp
 //
 
+force_inline string
+string_from_bytes(bytes b) {
+	return string {
+		(const u8 *) b.raw,
+		b.len
+	};
+}
+
 funcdef string string_format(Arena *arena, const char *fmt, ...);
 funcdef u64 string_count_lines(string s);
-funcdef string string_concat(string a, string b, Arena *arena);
 funcdef u64 string_column_count(string s, int indent_width = 4);
+funcdef string string_concat(string a, string b, Arena *arena);
+funcdef u64 string_find_first(string s, rune r);
+funcdef u64 string_find_last(string s, rune r);
+funcdef string string_strip(string s);
+funcdef Slice<string> string_split(string original, Arena *arena);
+funcdef bool string_equal(string a, string b);
+funcdef string string_copy(string str, Arena *arena);
 
 funcdef rune   utf8_decode(string slice, int *width);
 funcdef string utf8_encode(rune cp, Arena *arena);
 funcdef int    utf8_character_width(u8 first_byte);
 #define        utf8_continuation_byte(b) (((b) & 0xC0) == 0x80)
+funcdef bool   is_space(rune r);
 
 funcdef bool unicode_visual_rune(rune r);
 
 //
 // graphics.cpp
 //
+
+enum : u16 {
+	Texture_White,
+	Texture_Font,
+	Texture_Count
+};
+
+enum : u8 {
+	Draw_Layer_Base,
+	Draw_Layer_Popup,
+};
 
 enum : u32 {
 	key_Backspace = 1u << 0,
@@ -299,6 +321,8 @@ struct Render_Clip {
 funcdef void graphics_init(const char *title, int width, int height, Arena *persist);
 funcdef bool graphics_update(Frame_Input *input);
 funcdef void graphics_submit_draw();
+funcdef vec2 graphics_resolution();
+funcdef f32  graphics_line_height();
 
 funcdef void graphics_push_clip(Rect rect, Arena *frame_alloc);
 funcdef Render_Clip graphics_pop_clip();
@@ -325,6 +349,7 @@ struct Time_Duration {
 };
 
 funcdef bytes platform_load_entire_file(string path, Arena *allocator);
+funcdef bool platform_save_entire_file(string path, bytes data, Arena *scratch);
 
 funcdef u64 platform_time_now();
 funcdef Time_Duration platform_time_diff(u64 start, u64 end);
@@ -344,17 +369,16 @@ struct Line {
 
 struct Buffer 
 {
+	Arena *arena;
+	string path;
+
 	List<u8> data;
 	List<Line> lines;
 
 	u64 cursor;
 	u64 desired_column;
-};
 
-struct Overflow
-{
-	u64 data_size;
-	u64 line_count;
+	Buffer *next;
 };
 
 enum Direction {
@@ -364,8 +388,9 @@ enum Direction {
 	Direction_Down,
 };
 
-funcdef void buffer_make(Buffer *buffer, bytes data, Slice<Line> line_table);
-funcdef void buffer_insert(Buffer *buffer, string s, Overflow *overflow = nullptr);
+funcdef void buffer_make(Buffer *buffer, u64 data_cap, u64 line_count, string path);
+funcdef void buffer_deinit(Buffer *buffer);
+funcdef void buffer_insert(Buffer *buffer, string s);
 funcdef void buffer_delete(Buffer *buffer, u64 count, Direction dir);
 funcdef void buffer_move_cursor(Buffer *buffer, u64 count, Direction dir, int tab_width = 4);
 funcdef Slice<string> buffer_as_lines(Buffer *buffer, Arena *allocator);
@@ -373,35 +398,53 @@ funcdef u64  buffer_line_at_index(Buffer *buffer, u64 array_index);
 funcdef Range_U64 buffer_line_range(Buffer *buffer, u64 line_index);
 
 //
-// ui.cpp
+// editor.cpp
 //
 
-typedef u32 UI_Box_Flags;
-
-struct UI_Box {
-	UI_Box *first;
-	UI_Box *last;
-	UI_Box *next;
-	UI_Box *prev;
-	UI_Box *parent;
+enum Ed_Mode {
+	Mode_Normal,
+	Mode_Insert,
+	Mode_Command,
+	Mode_Count
 };
 
-enum UI_Draw_Kind : u32 {
-	UI_Draw_Rect,
-	UI_Draw_Text,
+enum Ed_Cmd_Kind {
+	Cmd_None,
+	Cmd_Buffer_Open,
+	Cmd_Buffer_Close,
+	Cmd_Buffer_Save,
 };
 
-struct UI_Draw {
-	UI_Draw_Kind kind;
+struct Ed_Cmd {
+	Ed_Cmd_Kind kind;
+
+	/////////// buffer ///////////
+
+	string buffer_path;
 };
 
-struct UI_State {
-	Arena *arena;
-	Arena *build_arena;
-	UI_Box *root;
+enum Ed_Error_Kind : u32 {
+	Ed_Error_None,
+	Ed_Error_Invalid_Command,
+	Ed_Error_Invalid_Argument,
+	Ed_Error_Cmd_Failed,
 };
 
+struct Ed_Error {
+	Ed_Error_Kind kind;
+};
 
+funcdef void ed_init();
+funcdef bool ed_update();
+
+funcdef Ed_Error ed_execute_cmd(Ed_Cmd cmd);
+funcdef void ed_handle_error(Ed_Error error);
+
+// commands
+
+funcdef Ed_Cmd open_buffer(string path);
+funcdef Ed_Cmd close_buffer(string path);
+funcdef Ed_Cmd save_buffer(string to_path);
 
 #endif
 
