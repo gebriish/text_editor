@@ -93,7 +93,7 @@ platform_save_entire_file(string path, bytes data, Arena *scratch)
 	return true;
 }
 
-funcdef int
+funcdef bool
 platform_is_dir(string path)
 {
 	struct stat path_stat;
