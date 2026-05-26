@@ -7,7 +7,7 @@
 // ~geb: theme
 
 const f32 FONT_HEIGHT = 24.0f;
-const u64 TAB_WIDTH   = 4;
+const u64 TAB_WIDTH   = 2;
 
 struct Color {
     // background

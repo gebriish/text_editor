@@ -272,6 +272,9 @@ enum Char_Kind {
 	Char_Space,
 	Char_Word,
 	Char_Punct,
+	Char_Open,
+	Char_Close,
+	Char_Quote,
 };
 
 funcdef string string_format(Arena *arena, const char *fmt, ...);
@@ -286,6 +289,7 @@ funcdef bool string_equal(string a, string b);
 funcdef string string_copy(string str, Arena *arena);
 
 funcdef Char_Kind char_kind(rune r);
+funcdef rune   char_get_pair(rune r);
 funcdef rune   utf8_decode(string slice, int *width);
 funcdef string utf8_encode(rune cp, Arena *arena);
 funcdef u64    utf8_prev_boundary(string data, u64 i);

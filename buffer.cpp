@@ -84,25 +84,69 @@ buffer_insert(Buffer *buffer, string s, Arena *scratch)
 {
 	if (!buffer) return;
 
+	bool move_left = false;
 	if (s.len == 1) { // special case single char inputs
 		char c = s[0];
-		switch (c) {
-		case '\n':
-			{
-				u64 line_index = buffer_line_at_index(buffer, buffer->cursor);
-				Range_U64 line_range = buffer_line_range(buffer, line_index);
+		Char_Kind kind = char_kind(c);
 
-				string data = string_from_bytes(slice_from_list(buffer->data));
-				string current_line = slice(data, line_range.begin, line_range.end);
+		if (c == '\n') {
+			u64 line_index = buffer_line_at_index(buffer, buffer->cursor);
+			Range_U64 line_range = buffer_line_range(buffer, line_index);
 
-				u64 i=0;
-				while(i < current_line.len && is_space(current_line[i]))
-					i += 1;
+			string data = string_from_bytes(slice_from_list(buffer->data));
+			string current_line = slice(data, line_range.begin, line_range.end);
 
-				string indents = slice(current_line, 0, i);
+			u64 i=0;
+			while(i < current_line.len && is_space(current_line[i]))
+				i += 1;
 
-				s = string_concat(s, indents, scratch);
-			} break;
+			string indents = slice(current_line, 0, i);
+
+			s = string_concat(s, indents, scratch);
+		}
+		else if (kind == Char_Open) {
+			u8 close = (char) char_get_pair(c);
+			string close_str = { &close, 1 };
+			s = string_concat(s, close_str, scratch);
+			move_left = true;
+		}
+		else if (kind == Char_Quote) {
+			u8 close = (char) char_get_pair(c);
+			string close_str = { &close, 1 };
+
+			if (buffer->cursor < buffer->data.len) {
+				string data = string_from_bytes(
+					slice_from_list(buffer->data)
+				);
+				int width = 0;
+				rune r = utf8_decode(slice(data, buffer->cursor, data.len), &width);
+
+				if (r == c) {
+					buffer_move_cursor(buffer, 1, Direction_Right);
+					return;
+				} else {
+					s = string_concat(s, close_str, scratch);
+					move_left = true;
+				}
+			} else {
+				s = string_concat(s, close_str, scratch);
+				move_left = true;
+			}
+		}
+		else if(kind == Char_Close) {
+			if (buffer->cursor < buffer->data.len) {
+
+				string data = string_from_bytes(
+					slice_from_list(buffer->data)
+				);
+				int width = 0;
+				rune r = utf8_decode(slice(data, buffer->cursor, data.len), &width);
+
+				if (r == c) {
+					buffer_move_cursor(buffer, 1, Direction_Right);
+					return;
+				}
+			}
 		}
 	}
 
@@ -136,8 +180,11 @@ buffer_insert(Buffer *buffer, string s, Arena *scratch)
 
 	bytes insert_data = { (u8 *) s.raw, s.len };
 	insert_slice(&buffer->data, buffer->cursor, insert_data);
-
 	buffer->cursor += s.len;
+
+	if (move_left) {
+		buffer_move_cursor(buffer, 1, Direction_Left);
+	}
 
 	buffer__build_lines(buffer);
 	buffer__sync_desired_column(buffer);

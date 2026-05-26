@@ -444,8 +444,6 @@ draw_text(string s, vec2 start_pos, u32 color)
 	f32 min_y = y;
 	f32 max_y = y;
 
-	const int TAB_WIDTH = 4;
-
 	u64 column = 0;
 
 	int width = 0;
@@ -584,8 +582,6 @@ graphics_measure_text(string s)
 	f32 max_x = 0;
 
 	f32 lines = 1;
-
-	const u64 TAB_WIDTH = 4;
 
 	u64 column = 0;
 
