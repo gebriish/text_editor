@@ -83,6 +83,7 @@ funcdef void
 buffer_insert(Buffer *buffer, string s, Arena *scratch)
 {
 	if (!buffer) return;
+	buffer->dirty = true;
 
 	bool move_left = false;
 	if (s.len == 1) { // special case single char inputs
@@ -104,34 +105,26 @@ buffer_insert(Buffer *buffer, string s, Arena *scratch)
 
 			s = string_concat(s, indents, scratch);
 		}
-		else if (kind == Char_Open) {
+		else if (kind == Char_Open || kind == Char_Quote) {
 			u8 close = (char) char_get_pair(c);
 			string close_str = { &close, 1 };
-			s = string_concat(s, close_str, scratch);
-			move_left = true;
-		}
-		else if (kind == Char_Quote) {
-			u8 close = (char) char_get_pair(c);
-			string close_str = { &close, 1 };
-
-			if (buffer->cursor < buffer->data.len) {
+			
+			if (buffer->cursor < buffer->data.len)
+			{
 				string data = string_from_bytes(
 					slice_from_list(buffer->data)
 				);
 				int width = 0;
-				rune r = utf8_decode(slice(data, buffer->cursor, data.len), &width);
+				rune under_cursor = utf8_decode(slice(data, buffer->cursor, data.len), &width);
 
-				if (r == c) {
+				if (under_cursor == c && kind == Char_Quote) {
 					buffer_move_cursor(buffer, 1, Direction_Right);
 					return;
-				} else {
-					s = string_concat(s, close_str, scratch);
-					move_left = true;
 				}
-			} else {
-				s = string_concat(s, close_str, scratch);
-				move_left = true;
 			}
+
+			s = string_concat(s, close_str, scratch);
+			move_left = true;
 		}
 		else if(kind == Char_Close) {
 			if (buffer->cursor < buffer->data.len) {
@@ -341,6 +334,7 @@ buffer_delete(Buffer *buffer, u64 count, Direction direction)
 
 	buffer__build_lines(buffer);
 	buffer__sync_desired_column(buffer);
+	buffer->dirty = true;
 }
 
 funcdef Slice<string>

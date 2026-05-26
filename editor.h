@@ -287,6 +287,7 @@ funcdef string string_strip(string s);
 funcdef Slice<string> string_split(string original, Arena *arena);
 funcdef bool string_equal(string a, string b);
 funcdef string string_copy(string str, Arena *arena);
+funcdef Slice<string> string_list(u8 **cstring, u64 len, Arena *arena);
 
 funcdef Char_Kind char_kind(rune r);
 funcdef rune   char_get_pair(rune r);
@@ -331,6 +332,8 @@ struct Render_Clip {
 };
 
 funcdef void graphics_init(const char *title, int width, int height, Arena *persist);
+funcdef void graphics_deinit();
+
 funcdef bool graphics_update(Frame_Input *input);
 funcdef void graphics_submit_draw();
 funcdef vec2 graphics_resolution();
@@ -363,6 +366,7 @@ struct Time_Duration {
 funcdef bytes platform_load_entire_file(string path, Arena *allocator);
 funcdef bool platform_save_entire_file(string path, bytes data, Arena *scratch);
 funcdef void platform_change_cwd(string dir);
+funcdef string platform_get_current_working_dir(Arena *allocator);
 
 funcdef u64 platform_time_now();
 funcdef Time_Duration platform_time_diff(u64 start, u64 end);
@@ -392,6 +396,8 @@ struct Buffer
 	u64 desired_column;
 
 	Buffer *next;
+
+	bool dirty;
 };
 
 enum Direction {
@@ -461,6 +467,8 @@ struct Ed_Error {
 };
 
 funcdef void ed_init();
+funcdef void ed_deinit();
+
 funcdef bool ed_update(Frame_Input input);
 funcdef void ed_change_mode(Ed_Mode mode);
 funcdef Buffer *ed_active_buffer();

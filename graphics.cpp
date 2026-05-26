@@ -89,11 +89,9 @@ graphics_init(const char *title, int width, int height, Arena *persist)
 	hints->minor = 3;
 	RGFW_setGlobalHints_OpenGL(hints);
 
-	RGFW_window *win = alloc_struct(persist, RGFW_window);
-	RGFW_createWindowPtr(
+	RGFW_window *win = RGFW_createWindow(
 		title, 0, 0, width, height,
-		RGFW_windowCenter | RGFW_windowAllowDND | RGFW_windowOpenGL,
-		win
+		RGFW_windowCenter | RGFW_windowAllowDND | RGFW_windowOpenGL
 	);
 
 	RGFW_window_makeCurrentContext_OpenGL(win);
@@ -293,6 +291,18 @@ graphics_init(const char *title, int width, int height, Arena *persist)
 	glBindTexture(GL_TEXTURE_2D, gfx.textures[Texture_Font]);
 
 	gfx.win = win;
+}
+
+funcdef void
+graphics_deinit()
+{
+    glDeleteVertexArrays(1, &gfx.vao);
+    glDeleteBuffers(1, &gfx.vbo);
+    glDeleteBuffers(1, &gfx.ebo);
+    glDeleteProgram(gfx.program);
+    glDeleteTextures(Texture_Count, gfx.textures);
+
+    RGFW_window_close(gfx.win);
 }
 
 funcdef bool

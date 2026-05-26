@@ -461,3 +461,15 @@ string_copy(string str, Arena *arena)
 	memcpy(data.raw, str.raw, str.len);
 	return string_from_bytes(data);
 }
+
+funcdef Slice<string>
+string_list(u8 **cstring, u64 len, Arena *arena)
+{
+	Slice<string> result = alloc_slice(arena, string, len);
+	for (u64 i=0; i<len; ++i) {
+		u64 l = strlen((char *) cstring[i]);
+		string s = { cstring[i], l };
+		result[i] = string_copy(s, arena);
+	}
+	return result;
+}
