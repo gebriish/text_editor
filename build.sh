@@ -1,7 +1,7 @@
 #!/bin/bash
 
+set -e
+
 mkdir -p ./bin
 
-time {
-	clang++ entrypoint.cpp -o bin/editor -std=c++11 -O0 -g -lX11 -lGL -lXrandr
-}
+clang++ entrypoint.cpp -o bin/editor -O0 -g3 -std=c++11 -lX11 -lGL -lXrandr

@@ -7,6 +7,10 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <time.h>
+#include <stdlib.h>
+
+
+global char temp_page[4098];
 
 funcdef Load_Error
 platform_file_info(string path, File_Info *info, Arena *scratch) {
@@ -160,13 +164,12 @@ platform_save_entire_file(string path, bytes data, Arena *scratch)
 funcdef string
 platform_path_canonical(Arena *arena, string path)
 {
-	static char tmp[4098];
 	u64 copy_len = Min(path.len, 4098 - 1);
-	memcpy(tmp, path.raw, copy_len);
-	tmp[copy_len] = '\0';
+	memcpy(temp_page, path.raw, copy_len);
+	temp_page[copy_len] = '\0';
 
 	char resolved[4098];
-	if (!realpath(tmp, resolved)) {
+	if (!realpath(temp_page, resolved)) {
 		return string_copy(path, arena);
 	}
 	return string_copy(string{(u8 *) resolved, strlen(resolved)}, arena);
@@ -210,14 +213,9 @@ platform_set_current_working_directory(string dir)
 funcdef string
 platform_get_current_working_dir(Arena *allocator)
 {
-	char *cwd = getcwd(nullptr, 0);
-	defer(free(cwd));
+	getcwd(temp_page, 4098);
 
-	if (!cwd) {
-		return {};
-	}
-
-	string cstring = { (u8 *) cwd, strlen(cwd) };
+	string cstring = { (u8 *) temp_page, strlen(temp_page) };
 	string result = string_copy(cstring, allocator);
 
 	return result;

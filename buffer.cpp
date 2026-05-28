@@ -210,29 +210,13 @@ buffer_insert(Buffer *buffer, string s, Arena *scratch)
 	u64 needed_data_len  = buffer->data.len + s.len;
 	if (needed_data_len > buffer->data.capacity) {
 		u64 required_size = Max(buffer->data.capacity * 2, needed_data_len * 2);
-
-		bytes old_data = {
-			buffer->data.raw,
-			buffer->data.capacity,
-		};
-
-		bytes new_data = realloc_slice(buffer->arena, u8, old_data, required_size);
-		buffer->data.raw = new_data.raw;
-		buffer->data.capacity = new_data.len;
+		list_realloc(&buffer->data, required_size, buffer->arena);
 	}
 
 	u64 needed_lines_len = string_count_lines(s) + buffer->lines.len;
 	if (needed_lines_len > buffer->lines.capacity) {
 		u64 required_size = Max(buffer->lines.capacity * 2, needed_lines_len * 2);
-
-		bytes old_data = {
-			buffer->data.raw,
-			buffer->data.capacity
-		};
-
-		bytes new_data = realloc_slice(buffer->arena, u8, old_data, required_size);
-		buffer->data.raw = new_data.raw;
-		buffer->data.capacity = new_data.len;
+		list_realloc(&buffer->lines, required_size, buffer->arena);
 	}
 
 	bytes insert_data = { (u8 *) s.raw, s.len };
@@ -407,10 +391,10 @@ buffer_line_range(Buffer *buffer, u64 line_index)
 	if (!buffer) return {};
 
 	if (line_index >= buffer->lines.len) {
-		return Range_U64 {
-			buffer->lines[line_index - 1].index + 1,
-			buffer->data.len
-		};
+		u64 begin = buffer->lines.len > 0
+			? buffer->lines[buffer->lines.len - 1].index + 1
+			: 0;
+		return Range_U64 { begin, buffer->data.len };
 	}
 
 	u64 end = buffer->lines[line_index].index;

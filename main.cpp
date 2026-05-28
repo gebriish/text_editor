@@ -21,7 +21,6 @@ draw_buffer_view(Buffer *buffer, Rect region)
 	string buf_string = string_from_bytes(slice_from_list(buffer->data));
 	Slice<Line> buffer_lines = slice_from_list(buffer->lines);
 
-
 	u64 cursor_line = buffer_line_at_index(buffer, buffer->cursor);
 	Range_U64 cursor_range = buffer_line_range(buffer, cursor_line);
 
@@ -35,7 +34,7 @@ draw_buffer_view(Buffer *buffer, Rect region)
 	f32 gutter_width = gutter_pad * 2 + digit_width * gutter_digits;
 
 	f32 text_x = region.from.x + gutter_width;
-
+	
 	//
 	// draw lines
 	//
@@ -55,7 +54,7 @@ draw_buffer_view(Buffer *buffer, Rect region)
 		if (current_line) {
 			draw_quad_rounded(
 				{text_x, y},
-				{region.size.x - gutter_width - digit_width, line_height},
+				{region.size.x - gutter_width - 2, line_height},
 				5,
 				Color::bg_alt
 			);
@@ -133,7 +132,9 @@ layout_panel_ui() {
 			{ Size_Fill, 1.0f },
 			{ Size_Fill, 1.0f }
 		},
-		.color = Color::bg
+		.border = 1,
+		.color = Color::bg,
+		.border_color = Color::bg_alt,
 	) {
 		auto buf = ed_active_buffer();
 		if (!buf) {
@@ -153,41 +154,6 @@ layout_panel_ui() {
 
 		panel_box = ui_current();
 	}
-
-	UI(
-		.size = {
-			{ Size_Fill, 1.0f },
-			{ Size_Fixed, status_height }
-		},
-		.padding = Pad(2),
-		.radius = 5,
-		.color = Color::dim,
-		.layout = Layout_Row,
-	) {
-		string mode_string = MODE_STRING[ed_mode()];
-		UI(
-			.size = {
-				{ Size_Fill, 1.0f },
-				{ Size_Fill, 1.0f }
-			},
-			.color = Color::bg,
-			.text = mode_string,
-		);
-
-		auto buf = ed_active_buffer();
-		if (buf) {
-			f32 width = graphics_measure_text(buf->path).x;
-			UI(
-				.size = {
-					{ Size_Fixed, width },
-					{ Size_Fill, 1.0f }
-				},
-				.color = Color::bg,
-				.text = buf->path,
-			);
-		}
-	}
-
 	return panel_box;
 }
 
@@ -224,27 +190,51 @@ void entry_point(Slice<string> args)
 		defer(graphics_pop_clip());
 
 		{
-			ui_begin_frame(window_rect, 0, Layout_Row);
+			ui_begin_frame(window_rect, UI_Invisible);
 
-			UI_Box *panel  = nullptr;
+			UI_Box *p1 = nullptr;
+
+			p1 = layout_panel_ui();
 
 			UI(
-				.flags = UI_Invisible,
 				.size = {
 					{ Size_Fill, 1.0f },
-					{ Size_Fill, 1.0f }
+					{ Size_Fixed, graphics_line_height() + 4 }
 				},
-				.layout = Layout_Col,
+				.padding = Pad(2),
+				.radius = 5,
+				.color = Color::dim,
+				.layout = Layout_Row,
 			) {
-				panel = layout_panel_ui();
+				string mode_string = MODE_STRING[ed_mode()];
+				UI(
+					.size = {
+						{ Size_Fill, 1.0f },
+						{ Size_Fill, 1.0f }
+					},
+					.color = Color::bg,
+					.text = mode_string,
+				);
+
+				auto buf = ed_active_buffer();
+				if (buf) {
+					f32 width = graphics_measure_text(buf->path).x;
+					UI(
+						.size = {
+							{ Size_Fixed, width },
+							{ Size_Fill, 1.0f }
+						},
+						.color = Color::bg,
+						.text = buf->path,
+					);
+				}
 			}
 
 			auto draw_list = ui_end_frame();
-
 			ui_draw_cmd_list(draw_list);
 
-			if (panel) {
-				draw_buffer_view(ed_active_buffer(), panel->rect);
+			if (p1) {
+				draw_buffer_view(ed_active_buffer(), p1->rect);
 			}
 		}
 
@@ -301,19 +291,39 @@ void entry_point(Slice<string> args)
 				.radius = 10,
 				.border = 1.0f,
 				.color = Color::bg,
-				.border_color = Color::cursor,
+				.border_color = Color::dim,
 				.layout = Layout_Col,
 			) {
 				Buffer *buf = ed_buffer_list();
 				for(;buf; buf = buf->next) {
-					UI(
-						.size = {
-							{ Size_Fill, 1.0f },
-							{ Size_Fixed, graphics_line_height() }
-						},
-						.color = Color::accent,
-						.text = buf->path,
-					);
+					if (buf == ed_active_buffer())  {
+						UI(
+							.size = {
+								{ Size_Fill, 1.0f },
+								{ Size_Fixed, graphics_line_height() }
+							},
+							.radius = 5,
+							.color = Color::dim,
+						) {
+							UI(
+								.size = {
+									{ Size_Fill, 1.0f },
+									{ Size_Fill, 1.0f }
+								},
+								.color = Color::bg,
+								.text = buf->path,
+							);
+						}
+					} else {
+						UI(
+							.size = {
+								{ Size_Fill, 1.0f },
+								{ Size_Fixed, graphics_line_height() }
+							},
+							.color = Color::dim,
+							.text = buf->path,
+						);
+					}
 				}
 			}
 			UI( .flags = UI_Invisible, .size = { {Size_Fill, 1.0}, {Size_Fill, 1.0}, },);

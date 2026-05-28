@@ -1,9 +1,22 @@
 #include "editor.h"
 #include "config.h"
 
+enum Panel_Kind : u32 {
+	Panel_Leaf,
+	Panel_VSplit,
+	Panel_HSplit,
+};
 
-global struct Editor
-{
+struct Panel {
+	Panel_Kind kind;
+
+	Panel *first;
+	Panel *second;
+
+	Buffer *view_buffer;
+};
+
+global struct Editor {
 	Ed_Mode mode;
 	bool should_exit;
 
@@ -162,7 +175,7 @@ ed_update(Frame_Input input)
 		case Mode_Normal: {
 			switch(c) {
 				case ':': ed_change_mode(Mode_Command); break;
-				case ' ': ed_change_mode(Mode_Buffer_Search); break;
+				case '.': ed_change_mode(Mode_Buffer_Search); break;
 
 				case 'h': buffer_move_cursor(buf, 1, Direction_Left); break;
 				case 'l': buffer_move_cursor(buf, 1, Direction_Right); break;
@@ -215,10 +228,24 @@ ed_update(Frame_Input input)
 			u32 key_flags = input.key_flags;
 			u8 input_char = (u8) c;
 
-			if (key_flags & key_Escape) {
+			if (key_flags & (key_Escape) || c == '\n') {
 				editor.mode = Mode_Normal;
 				editor.command_length = 0;
 				break;
+			}
+
+			switch (c) {
+				case 'j': 
+
+					if (!ed_active_buffer())
+						break;
+
+					editor.active_buffer = editor.active_buffer->next;
+					if (!editor.active_buffer)  {
+						editor.active_buffer = editor.buffers;
+					}
+
+					break;
 			}
 		} break;
 
@@ -369,15 +396,21 @@ ed_execute_cmd(Ed_Cmd cmd)
 				break;
 			}
 		}
+
 		Buffer *last = nullptr;
 		for (Buffer *buf = editor.buffers; buf; last = buf, buf = buf->next) {
-			if (!string_equal(buf->path, path)) continue;
+			if (!string_equal(buf->path, path))
+				continue;
+
 			(last ? last->next : editor.buffers) = buf->next;
 			if (editor.active_buffer == buf) editor.active_buffer = editor.buffers;
+
 			editor.buffer_count -= 1;
 			buffer_deinit(buf);
+
 			buf->next = editor.free_buffers;
 			editor.free_buffers = buf;
+
 			break;
 		}
 	} break;

@@ -24,6 +24,9 @@ typedef  int64_t s64;
 typedef float  f32;
 typedef double f64;
 
+// foward decl 
+// typedef struct Arena Arena;
+
 static_assert(sizeof(f32) == 4, "float32 size missmatch");
 static_assert(sizeof(f64) == 8, "float32 size missmatch");
 
@@ -46,18 +49,6 @@ generic(T) struct Slice {
 	}
 };
 
-generic(T) force_inline Slice<T>
-slice(Slice<T> src, u64 begin, u64 end)
-{
-    assert(begin <= src.len);
-    assert(end <= src.len);
-    assert(begin <= end);
-    return Slice<T> {
-        src.raw + begin,
-        end - begin
-    };
-}
-
 generic(T) struct List {
 	T *raw;
 	u64 len;
@@ -68,77 +59,6 @@ generic(T) struct List {
 		return raw[index];
 	}
 };
-
-generic(T) force_inline List<T>
-list_from_buffer(Slice<T> buff)
-{
-	return List<T> {
-		buff.raw,
-		0,
-		buff.len
-	};
-}
-
-generic(T) force_inline Slice<T>
-slice_from_list(List<T> list) {
-	return Slice<T> {
-		list.raw,
-		list.len
-	};
-}
-
-generic(T) force_inline void
-append(List<T> *l, T value)
-{
-	assert(l && (l->len < l->capacity) && "fixed size list buffer overflow");
-
-	l->raw[l->len] = value;
-	l->len += 1;
-}
-
-generic(T) force_inline void
-insert_slice(List<T> *l, u64 index, Slice<T> values)
-{
-	assert(index <= l->len && "insert index out of bounds");
-	assert((l->len + values.len) <= l->capacity && "fixed size list buffer overflow");
-
-	if (values.len == 0) {
-		return;
-	}
-
-	T *dst = l->raw + index;
-
-	memmove(
-		dst + values.len,
-		dst,
-		(l->len - index) * sizeof(T)
-	);
-
-	memcpy(
-		dst,
-		values.raw,
-		values.len * sizeof(T)
-	);
-
-	l->len += values.len;
-}
-
-generic(T) force_inline void
-clear(List<T> *l)
-{
-	l->len = 0;
-}
-
-
-force_inline int
-digit_count_u64(u64 n) {
-    int count = 1;
-    while (n >= 10) {
-        n /= 10;
-        count++;
-    }
-    return count;
-}
 
 /////////////////////////////////////////////////////////////////////////////////////
 // ~geb: cursed defer from gb.h
@@ -641,6 +561,104 @@ funcdef Ed_Cmd jump_to_word_start();
 funcdef Ed_Cmd jump_to_word_end();
 funcdef Ed_Cmd jump_to_word_previous();
 funcdef Ed_Cmd exit_editor();
+
+// list helpers
+
+generic(T) force_inline void
+list_realloc(List<T> *list, u64 new_cap, Arena *arena) {
+	assert(new_cap > list->capacity);
+	Slice<T> old_data = {
+		list->raw,
+		list->capacity
+	};
+
+	Slice<T> new_data = realloc_slice(arena, T, old_data, new_cap);
+	list->raw = new_data.raw;
+	list->capacity = new_data.len;
+}
+
+generic(T) force_inline List<T>
+list_from_buffer(Slice<T> buff)
+{
+	return List<T> {
+		buff.raw,
+		0,
+		buff.len
+	};
+}
+
+generic(T) force_inline Slice<T>
+slice_from_list(List<T> list) {
+	return Slice<T> {
+		list.raw,
+		list.len
+	};
+}
+
+generic(T) force_inline void
+append(List<T> *l, T value)
+{
+	assert(l && (l->len < l->capacity) && "fixed size list buffer overflow");
+
+	l->raw[l->len] = value;
+	l->len += 1;
+}
+
+generic(T) force_inline void
+insert_slice(List<T> *l, u64 index, Slice<T> values)
+{
+	assert(index <= l->len && "insert index out of bounds");
+	assert((l->len + values.len) <= l->capacity && "fixed size list buffer overflow");
+
+	if (values.len == 0) {
+		return;
+	}
+
+	T *dst = l->raw + index;
+
+	memmove(
+		dst + values.len,
+		dst,
+		(l->len - index) * sizeof(T)
+	);
+
+	memcpy(
+		dst,
+		values.raw,
+		values.len * sizeof(T)
+	);
+
+	l->len += values.len;
+}
+
+generic(T) force_inline void
+clear(List<T> *l)
+{
+	l->len = 0;
+}
+
+
+force_inline int
+digit_count_u64(u64 n) {
+    int count = 1;
+    while (n >= 10) {
+        n /= 10;
+        count++;
+    }
+    return count;
+}
+
+generic(T) force_inline Slice<T>
+slice(Slice<T> src, u64 begin, u64 end)
+{
+    assert(begin <= src.len);
+    assert(end <= src.len);
+    assert(begin <= end);
+    return Slice<T> {
+        src.raw + begin,
+        end - begin
+    };
+}
 
 #endif
 

@@ -138,7 +138,11 @@ ui__layout_position(UI_Box *box)
 		- config->padding.top
 		- config->padding.bottom;
 
-	f32 used = 0;
+	u64 child_count = 0;
+	iterate_children(box) child_count += 1;
+	u64 gap_count = child_count > 0 ? child_count - 1 : 0;
+
+	f32 used       = 0;
 	f32 fill_total = 0;
 
 	if (config->layout == Layout_Row) {
@@ -146,213 +150,92 @@ ui__layout_position(UI_Box *box)
 		iterate_children(box)
 		{
 			UI_Size_Axis size = child->config.size.w;
-
 			switch (size.kind) {
-
-			case Size_Fixed:
-				used += size.value;
-				break;
-
-			case Size_Percent:
-				used += inner_w * size.value;
-				break;
-
-			case Size_Fit:
-				used += child->rect.size.x;
-				break;
-
-			case Size_Fill:
-				fill_total += size.value;
-				break;
+				case Size_Fixed:   used += size.value;                  break;
+				case Size_Percent: used += inner_w * size.value;        break;
+				case Size_Fit:     used += child->rect.size.x;          break;
+				case Size_Fill:    fill_total += size.value;            break;
 			}
 		}
 
-		used += config->gap * Max(0, (s32)ui.box_count - 1);
-
+		used += config->gap * gap_count;
 		f32 remaining = Max(0, inner_w - used);
-
-		////////////////////////////////////////
-		// ~geb: place children
-
-		f32 cursor = x;
+		f32 cursor    = x;
 
 		iterate_children(box)
 		{
 			UI_Size_Axis w = child->config.size.w;
 			UI_Size_Axis h = child->config.size.h;
 
-			////////////////////////////////////
-			// width
-
 			switch (w.kind) {
-
-			case Size_Fixed:
-				child->rect.size.x = w.value;
-				break;
-
-			case Size_Percent:
-				child->rect.size.x = inner_w * w.value;
-				break;
-
-			case Size_Fill:
-				child->rect.size.x =
-					remaining * (w.value / fill_total);
-				break;
-
-			case Size_Fit:
-				break;
+				case Size_Fixed:   child->rect.size.x = w.value;                          break;
+				case Size_Percent: child->rect.size.x = inner_w * w.value;                break;
+				case Size_Fill:    child->rect.size.x = remaining * (w.value/fill_total); break;
+				case Size_Fit:                                                             break;
 			}
-
-			////////////////////////////////////
-			// height
 
 			switch (h.kind) {
-			case Size_Fixed:
-				child->rect.size.y = h.value;
-				break;
-
-			case Size_Percent:
-				child->rect.size.y = inner_h * h.value;
-				break;
-
-			case Size_Fill:
-				child->rect.size.y = inner_h;
-				break;
-
-			case Size_Fit:
-				break;
+				case Size_Fixed:   child->rect.size.y = h.value;         break;
+				case Size_Percent: child->rect.size.y = inner_h * h.value; break;
+				case Size_Fill:    child->rect.size.y = inner_h;         break;
+				case Size_Fit:                                            break;
 			}
 
-			////////////////////////////////////
-			// position
-
 			child->rect.from.x = cursor;
-
 			switch (config->align) {
-
-			case Align_Start:
-				child->rect.from.y = y;
-				break;
-
-			case Align_Center:
-				child->rect.from.y = y + (inner_h - child->rect.size.y) * 0.5f;
-				break;
-
-			case Align_End:
-				child->rect.from.y = y + (inner_h - child->rect.size.y);
-				break;
+				case Align_Start:  child->rect.from.y = y;                                        break;
+				case Align_Center: child->rect.from.y = y + (inner_h - child->rect.size.y)*0.5f; break;
+				case Align_End:    child->rect.from.y = y + (inner_h - child->rect.size.y);       break;
 			}
 
 			cursor += child->rect.size.x + config->gap;
-
 			ui__layout_position(child);
 		}
 	}
 	else {
 
-		////////////////////////////////////////
-		// column layout
-
 		iterate_children(box)
 		{
 			UI_Size_Axis size = child->config.size.h;
-
 			switch (size.kind) {
-
-			case Size_Fixed:
-				used += size.value;
-				break;
-
-			case Size_Percent:
-				used += inner_h * size.value;
-				break;
-
-			case Size_Fit:
-				used += child->rect.size.y;
-				break;
-
-			case Size_Fill:
-				fill_total += size.value;
-				break;
+				case Size_Fixed:   used += size.value;                  break;
+				case Size_Percent: used += inner_h * size.value;        break;
+				case Size_Fit:     used += child->rect.size.y;          break;
+				case Size_Fill:    fill_total += size.value;            break;
 			}
 		}
 
+		used += config->gap * gap_count;
 		f32 remaining = Max(0, inner_h - used);
-
-		f32 cursor = y;
+		f32 cursor    = y;
 
 		iterate_children(box)
 		{
 			UI_Size_Axis w = child->config.size.w;
 			UI_Size_Axis h = child->config.size.h;
 
-			////////////////////////////////////
-			// width
-
 			switch (w.kind) {
-
-			case Size_Fixed:
-				child->rect.size.x = w.value;
-				break;
-
-			case Size_Percent:
-				child->rect.size.x = inner_w * w.value;
-				break;
-
-			case Size_Fill:
-				child->rect.size.x = inner_w;
-				break;
-
-			case Size_Fit:
-				break;
+				case Size_Fixed:   child->rect.size.x = w.value;          break;
+				case Size_Percent: child->rect.size.x = inner_w * w.value; break;
+				case Size_Fill:    child->rect.size.x = inner_w;           break;
+				case Size_Fit:                                              break;
 			}
-
-			////////////////////////////////////
-			// height
 
 			switch (h.kind) {
-
-			case Size_Fixed:
-				child->rect.size.y = h.value;
-				break;
-
-			case Size_Percent:
-				child->rect.size.y = inner_h * h.value;
-				break;
-
-			case Size_Fill:
-				child->rect.size.y =
-					remaining * (h.value / fill_total);
-				break;
-
-			case Size_Fit:
-				break;
+				case Size_Fixed:   child->rect.size.y = h.value;                          break;
+				case Size_Percent: child->rect.size.y = inner_h * h.value;                break;
+				case Size_Fill:    child->rect.size.y = remaining * (h.value/fill_total); break;
+				case Size_Fit:                                                             break;
 			}
 
-			////////////////////////////////////
-			// position
-
 			child->rect.from.y = cursor;
-
 			switch (config->align) {
-
-			case Align_Start:
-				child->rect.from.x = x;
-				break;
-
-			case Align_Center:
-				child->rect.from.x =
-					x + (inner_w - child->rect.size.x) * 0.5f;
-				break;
-
-			case Align_End:
-				child->rect.from.x =
-					x + (inner_w - child->rect.size.x);
-				break;
+				case Align_Start:  child->rect.from.x = x;                                        break;
+				case Align_Center: child->rect.from.x = x + (inner_w - child->rect.size.x)*0.5f; break;
+				case Align_End:    child->rect.from.x = x + (inner_w - child->rect.size.x);       break;
 			}
 
 			cursor += child->rect.size.y + config->gap;
-
 			ui__layout_position(child);
 		}
 	}
