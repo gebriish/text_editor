@@ -231,9 +231,23 @@ ed_exec_command(Ed_Cmd cmd)
 			ed_ctx.active_buffer = nullptr;
         } break;
 
-        case Cmd_Exit:
-        {
-        } break;
+		case Cmd_Jump_Word_Start:
+		{
+			Direction dir = cmd.arg_dir;
+			Buffer *active = ed_active();
+			
+			if (dir == Direction::Right) {
+				u64 loc = buffer_next_word_start(active, buffer_cursor(active));
+				buffer_move_cursor(active, loc, Direction::Absolute);
+			}
+			
+
+		} break;
+
+		case Cmd_Jump_Word_End:
+		{
+			Direction dir = cmd.arg_dir;	
+		} break;
 
         default: break;
     }
@@ -338,6 +352,26 @@ jump_to_line(u64 line)
 	cmd.arg_u64 = line;
 	return cmd;
 }
+
+funcdef Ed_Cmd
+jump_to_word_start(Direction dir)
+{
+	Ed_Cmd cmd = {};
+	cmd.kind = Cmd_Jump_Word_Start;
+	cmd.arg_dir = dir;
+	return cmd;
+}
+
+funcdef Ed_Cmd
+jump_to_word_end(Direction dir)
+{
+	Ed_Cmd cmd = {};
+	cmd.kind = Cmd_Jump_Word_End;
+	cmd.arg_dir = dir;
+	return cmd;
+}
+
+
 
 
 funcdef string

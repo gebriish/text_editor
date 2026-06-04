@@ -540,6 +540,8 @@ funcdef void       buffer_move_cursor(Buffer *buf, u64 amount, Direction dir);
 funcdef rune       buffer_char_at(Buffer *buf, s64 index);
 funcdef u64        buffer_cursor(Buffer *buf);
 
+funcdef u64 buffer_next_word_start(Buffer *buffer, u64 pos);
+
 struct Buffer_Map {
 	slice<Buffer> table;
 	u64 count;
@@ -576,13 +578,16 @@ enum Ed_CmdKind {
 	Cmd_In_Palette_End,
 
 
-
 	Cmd_Mode_Change,
 	Cmd_Cursor_Move,
 	Cmd_Insert_String,
 	Cmd_Delete_String,
 	Cmd_Jump_To_Line,
 	Cmd_Workspace_Open,
+
+	Cmd_Jump_Word_Start,
+	Cmd_Jump_Word_End,
+
 	Cmd_Count,
 };
 
@@ -628,6 +633,8 @@ funcdef Ed_Cmd move_cursor(Direction dir, u64 count);
 funcdef Ed_Cmd insert_string(string str);
 funcdef Ed_Cmd delete_string(Direction dir, u64 count);
 funcdef Ed_Cmd jump_to_line(u64 line);
+funcdef Ed_Cmd jump_to_word_start(Direction dir);
+funcdef Ed_Cmd jump_to_word_end(Direction dir);
 
 funcdef string cmd_function(Ed_CmdKind kind);
 

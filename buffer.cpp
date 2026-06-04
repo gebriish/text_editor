@@ -459,8 +459,75 @@ buffer_map_get_paths(Buffer_Map *map, Arena *arena)
 	return { result.raw, result.len };
 }
 
-/////////////////////////////////////
 
+funcdef u64
+buffer_next_word_start(Buffer *buffer, u64 pos)
+{
+    if (!buffer)
+        return 0;
+
+    string text = buffer->data.view();
+
+    if (pos >= text.len)
+        return text.len;
+
+    int width;
+    rune r = utf8_decode(text.range(pos, text.len), &width);
+
+    enum {
+        Class_Word,
+        Class_Space,
+        Class_Punct,
+    } cls;
+
+    CharKind ck = char_kind(r);
+
+    if (is_space(r))
+        cls = Class_Space;
+    else if (ck == Char_Letter || ck == Char_Number)
+        cls = Class_Word;
+    else
+        cls = Class_Punct;
+
+    while (pos < text.len) {
+        r = utf8_decode(text.range(pos, text.len), &width);
+        ck = char_kind(r);
+
+        int c;
+
+        if (is_space(r))
+            c = Class_Space;
+        else if (ck == Char_Letter || ck == Char_Number)
+            c = Class_Word;
+        else
+            c = Class_Punct;
+
+        if (c != cls)
+            break;
+
+        pos += width;
+    }
+
+    while (pos < text.len) {
+        r = utf8_decode(text.range(pos, text.len), &width);
+
+        if (!is_space(r))
+            break;
+
+        pos += width;
+    }
+
+    return pos;
+}
+
+funcdef u64
+buffer_prev_word_start(Buffer *buf, u64 pos)
+{
+
+}
+
+
+/////////////////////////////////////
 
 funcdef void
 draw_buffer_view(Buffer *buffer, Rect rect)

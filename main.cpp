@@ -10,7 +10,6 @@ enum UI_Classes {
 	Class_Count,
 };
 
-
 funcdef string
 format_user_input(rune codepoint, Arena *frame_arena, Ed_Cmd *post)
 {
@@ -223,6 +222,12 @@ void entry_point(slice<string> args)
 				case 'j': cmd = move_cursor(Direction::Down, 1); break;
 				case 'k': cmd = move_cursor(Direction::Up, 1); break;
 				case 'l': cmd = move_cursor(Direction::Right, 1); break;
+				case 'w': cmd = jump_to_word_start(Direction::Right); break;
+
+				case 'a': {
+					ed_exec_command(move_cursor(Direction::Right, 1));
+					cmd = change_mode(Ed_Mode::Insert);
+				} break;
 
 				case 'J': cmd = move_cursor(Direction::Down, 10); break;
 				case 'K': cmd = move_cursor(Direction::Up, 10); break;
