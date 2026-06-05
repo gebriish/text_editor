@@ -1,8 +1,6 @@
 #include "editor.h"
 #include "config.h"
 
-#include <math.h>
-
 funcdef string
 format_user_input(rune codepoint, Arena *frame_arena, Ed_Cmd *post)
 {
@@ -363,7 +361,6 @@ void entry_point(slice<string> args)
 		draw_buffer_view(ed_active(), panel->rect);
 
 		if (ed_mode() == Ed_Mode::Command) {
-			draw_buffer_view(ed_active(), panel->rect);
 
 			root.padding = Pad_XY(0, 50);
 			root.layout  = Layout_Row;

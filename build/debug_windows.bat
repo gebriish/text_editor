@@ -2,4 +2,13 @@
 
 if not exist bin mkdir bin
 
-zig c++ .\build\build.cpp -o .\bin\editor.exe -O0 -g -std=c++11 -fsanitize=undefined -lgdi32 -lopengl32
+cl ^
+    /Fe:.\bin\editor.exe ^
+    /Zi ^
+    /Od ^
+    /std:c++14 ^
+    .\build\build.cpp ^
+    gdi32.lib ^
+    opengl32.lib ^
+    /link ^
+    /SUBSYSTEM:WINDOWS
