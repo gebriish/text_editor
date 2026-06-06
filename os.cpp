@@ -152,6 +152,60 @@ os_time_diff(OS_TimeStamp t0, OS_TimeStamp t1)
     return d;
 }
 
+funcdef Load_Error
+os_file_to_buffer(u8 *ptr, u64 cap, u64 *out, string path)
+{
+	Temp t = temp_begin(scratch());
+	defer(temp_end(t));
+
+	string cstring = string_to_cstring(t.arena, path);
+
+	FILE *f = fopen((char *) cstring.raw, "r");
+	if (!f) {
+		if (out)
+			*out = 0;
+		return Load_IO_Error;
+	}
+	defer(fclose(f));
+
+    size_t len = fread(ptr, 1, cap, f);
+
+    if (out) {
+        *out = len;
+    }
+
+	return Load_Ok;
+}
+
+funcdef bool
+os_write_to_file(string path, bytes data)
+{
+	Temp t = temp_begin(scratch());
+	defer(temp_end(t));
+
+	string cstring = string_to_cstring(t.arena, path);
+
+	FILE *f = fopen((char *)cstring.raw, "wb");
+	if (!f) {
+		return false;
+    }
+	defer(fclose(f));
+
+    size_t written = 0;
+
+    while (written < data.len) {
+        size_t n = fwrite(data.raw + written, 1, data.len - written, f);
+
+        if (n == 0) {
+            break;
+        }
+
+        written += n;
+    }
+
+	return true;
+}
+
 
 funcdef bytes
 os_load_entire_file(Arena *arena, string path)
@@ -164,7 +218,9 @@ os_load_entire_file(Arena *arena, string path)
 
 	u64 arena_pos = arena->used;
 	bytes data = alloc_slice(arena, u8, file_data.size);
-	Load_Error err = os_file_to_buffer(data.raw, data.len, path);
+
+	u64 out_len = 0;
+	Load_Error err = os_file_to_buffer(data.raw, data.len, &out_len, path);
 
 	if (err != Load_Ok) {
 		temp_end(t);

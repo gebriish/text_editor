@@ -387,10 +387,6 @@ draw_text(string s, vec2 start_pos, u32 color)
 			continue;
 		}
 
-		if (c == '\r') {
-			continue;
-		}
-
 		if (c == '\t') {
 			u64 spaces = TAB_WIDTH - (column % TAB_WIDTH);
 
@@ -416,6 +412,11 @@ draw_text(string s, vec2 start_pos, u32 color)
 
 		bool invalid = false;
 		if (c < FIRST_CHAR || c >= FIRST_CHAR + NUM_CHARS) {
+			c = '?';
+			invalid = true;
+		}
+
+		if (c == '\r') {
 			c = '?';
 			invalid = true;
 		}

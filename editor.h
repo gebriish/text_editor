@@ -314,7 +314,7 @@ enum Load_Error {
 };
 
 funcdef OS_FileData os_file_data(string path);
-funcdef Load_Error  os_file_to_buffer(u8 *ptr, u64 len, string path);
+funcdef Load_Error  os_file_to_buffer(u8 *ptr, u64 cap, u64 *out, string path);
 funcdef bytes       os_load_entire_file(Arena *arena, string path);
 funcdef bool        os_write_to_file(string path, bytes data);
 

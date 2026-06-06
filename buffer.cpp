@@ -78,7 +78,9 @@ buffer_init(Buffer *buffer, string path)
 		buffer->file_kind = file_data.kind;
 
 		bytes data = alloc_slice(buffer->arena, u8, Max(file_data.size * 2, KB(512)));
-		Load_Error err = os_file_to_buffer(data.raw, data.len, path);
+		u64 len = 0;
+		Load_Error err = os_file_to_buffer(data.raw, data.len, &len, path);
+
 		if (err != Load_Ok) {
 			buffer->data = list_make(alloc_slice(buffer->arena, u8, KB(512)));
 			buffer->lines = list_make(alloc_slice(buffer->arena, Line, 2048));
@@ -88,7 +90,7 @@ buffer_init(Buffer *buffer, string path)
 
 		buffer->data = list<u8> {
 			data.raw,
-			file_data.size,
+			len,
 			data.len
 		};
 	}
