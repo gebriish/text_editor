@@ -347,17 +347,105 @@ draw_quad(vec2 pos, vec2 size, u32 color, u8 texture, vec2 uv0, vec2 uv1, ivec2 
 	u16 c2 = (u16)(clip.from.x + clip.size.x);
 	u16 c3 = (u16)(clip.from.y + clip.size.y);
 
-	append(&gfx_ctx.vertices, Vertex { { (s16)x,       (s16)y }, { u0, v0 }, color, texture, {cr0_x, cr0_y}, { c0, c1, c2, c3 } });
-	append(&gfx_ctx.vertices, Vertex { { (s16)(x + w), (s16)y }, { u1, v0 }, color, texture, {cr1_x, cr0_y}, { c0, c1, c2, c3 } });
-	append(&gfx_ctx.vertices, Vertex { { (s16)(x + w), (s16)(y + h) }, { u1, v1 }, color, texture, {cr1_x, cr1_y}, { c0, c1, c2, c3 } });
-	append(&gfx_ctx.vertices, Vertex { { (s16)x,       (s16)(y + h) }, { u0, v1 }, color, texture, {cr0_x, cr1_y}, { c0, c1, c2, c3 } });
+	Vertex v[] =  {
+		{ { (s16)x,       (s16)y }, { u0, v0 }, color, texture, {cr0_x, cr0_y}, { c0, c1, c2, c3 } },
+		{ { (s16)(x + w), (s16)y }, { u1, v0 }, color, texture, {cr1_x, cr0_y}, { c0, c1, c2, c3 } },
+		{ { (s16)(x + w), (s16)(y + h) }, { u1, v1 }, color, texture, {cr1_x, cr1_y}, { c0, c1, c2, c3 } },
+		{ { (s16)x,       (s16)(y + h) }, { u0, v1 }, color, texture, {cr0_x, cr1_y}, { c0, c1, c2, c3 } }
+	};
+	slice<Vertex> vertices = { v, 4 };
+	append_slice(&gfx_ctx.vertices, vertices);
 
-	append(&gfx_ctx.indices, (u16)(i + 0));
-	append(&gfx_ctx.indices, (u16)(i + 1));
-	append(&gfx_ctx.indices, (u16)(i + 2));
-	append(&gfx_ctx.indices, (u16)(i + 2));
-	append(&gfx_ctx.indices, (u16)(i + 3));
-	append(&gfx_ctx.indices, (u16)(i + 0));
+	u16 idx[] = {
+		(u16)(i + 0),
+		(u16)(i + 1),
+		(u16)(i + 2),
+		(u16)(i + 2),
+		(u16)(i + 3),
+		(u16)(i + 0),
+	};
+	slice<u16> indices = { idx, 6 };
+	append_slice(&gfx_ctx.indices, indices);
+}
+
+
+funcdef void
+draw_dropshadow(vec2 pos, vec2 size, f32 thickness, u32 color)
+{
+    if (gfx_ctx.vertices.len + 8 > gfx_ctx.vertices.capacity || gfx_ctx.indices.len + 24 > gfx_ctx.indices.capacity)
+        gfx_submit();
+
+	pos.x += thickness * 0.2f;
+	pos.y += thickness * 0.2f;
+
+	size.x -= thickness * 0.4f;
+	size.y -= thickness * 0.4f;
+
+    f32 r = thickness; // corner chamfer size
+
+    f32 ix0 = pos.x,          iy0 = pos.y;
+    f32 ix1 = pos.x + size.x, iy1 = pos.y + size.y;
+
+    f32 ox0 = ix0 - thickness, oy0 = iy0 - thickness;
+    f32 ox1 = ix1 + thickness, oy1 = iy1 + thickness;
+
+    u32 outer = color & 0x00FFFFFF;
+
+    Rect clip = gfx_ctx.clip_stack->rect;
+    u16 c0 = (u16)(clip.from.x);
+    u16 c1 = (u16)(clip.from.y);
+    u16 c2 = (u16)(clip.from.x + clip.size.x);
+    u16 c3 = (u16)(clip.from.y + clip.size.y);
+
+    u16 mid = (u16)(MAX_U16 * 0.5f);
+
+    // 8 outer vertices (chamfered corners)
+    // corners are inset by r along each axis
+    Vertex v[] = {
+        // outer ring — chamfered corners
+        { { (s16)(ox0 + r), (s16)(oy0)     }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 0 top-left-top
+        { { (s16)(ox1 - r), (s16)(oy0)     }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 1 top-right-top
+        { { (s16)(ox1),     (s16)(oy0 + r) }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 2 top-right-right
+        { { (s16)(ox1),     (s16)(oy1 - r) }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 3 bot-right-right
+        { { (s16)(ox1 - r), (s16)(oy1)     }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 4 bot-right-bot
+        { { (s16)(ox0 + r), (s16)(oy1)     }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 5 bot-left-bot
+        { { (s16)(ox0),     (s16)(oy1 - r) }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 6 bot-left-left
+        { { (s16)(ox0),     (s16)(oy0 + r) }, {mid,mid}, outer, 0, {}, {c0,c1,c2,c3} }, // 7 top-left-left
+
+        // inner ring — plain rectangle corners
+        { { (s16)(ix0), (s16)(iy0) }, {mid,mid}, color, 0, {}, {c0,c1,c2,c3} }, // 8  TL
+        { { (s16)(ix1), (s16)(iy0) }, {mid,mid}, color, 0, {}, {c0,c1,c2,c3} }, // 9  TR
+        { { (s16)(ix1), (s16)(iy1) }, {mid,mid}, color, 0, {}, {c0,c1,c2,c3} }, // 10 BR
+        { { (s16)(ix0), (s16)(iy1) }, {mid,mid}, color, 0, {}, {c0,c1,c2,c3} }, // 11 BL
+    };
+
+    u16 i = (u16)gfx_ctx.vertices.len;
+
+	u16 idx[] = {
+		// top edge
+		(u16)(i+0), (u16)(i+9), (u16)(i+1),
+		(u16)(i+0), (u16)(i+8), (u16)(i+9),
+		// top-right corner
+		(u16)(i+1), (u16)(i+9), (u16)(i+2),
+		// right edge
+		(u16)(i+2), (u16)(i+9), (u16)(i+10),
+		(u16)(i+2), (u16)(i+10),(u16)(i+3),
+		// bot-right corner
+		(u16)(i+3), (u16)(i+10),(u16)(i+4),
+		// bottom edge
+		(u16)(i+5), (u16)(i+4), (u16)(i+10),
+		(u16)(i+5), (u16)(i+10),(u16)(i+11),
+		// bot-left corner
+		(u16)(i+6), (u16)(i+5), (u16)(i+11),
+		// left edge
+		(u16)(i+6), (u16)(i+11),(u16)(i+8),
+		(u16)(i+6), (u16)(i+8), (u16)(i+7),
+		// top-left corner
+		(u16)(i+7), (u16)(i+8), (u16)(i+0),
+	};
+
+    append_slice(&gfx_ctx.vertices, (slice<Vertex>){ v, 12 });
+    append_slice(&gfx_ctx.indices,  (slice<u16>)   { idx, 36 });
 }
 
 funcdef vec2

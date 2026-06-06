@@ -360,13 +360,12 @@ void entry_point(slice<string> args)
 
 		draw_buffer_view(ed_active(), panel->rect);
 
+		UI_Box *box = nullptr;
 		if (ed_mode() == Ed_Mode::Command) {
 
-			root.padding = Pad_XY(0, 50);
+			root.flags = UI_Invisible;
+			root.padding = Pad_XY(0, 100);
 			root.layout  = Layout_Row;
-
-			// modal backdrop
-			root.color = (g_config.theme.background_dim & Hex(0xFFFFFF00)) | Hex(0xAA);
 
 			ui_begin_frame(win_rect, root);
 
@@ -384,15 +383,16 @@ void entry_point(slice<string> args)
 			UI_Config c_cmd = {};
 			c_cmd.flags = UI_Clip_Children;
 			c_cmd.size.w = { Size_Fill, 3.0f };
-			c_cmd.size.h = { Size_Fit, 0.0f };
+			c_cmd.size.h = { Size_Fill, 1.0f };
 			c_cmd.padding = Pad(10);
 			c_cmd.radius = 10.0f;
 			c_cmd.border = 1.0f;
-			c_cmd.color = g_config.theme.background;
-			c_cmd.border_color = g_config.theme.border;
+			c_cmd.color = g_config.theme.background & 0xccffffff;
+			c_cmd.border_color = g_config.theme.border & 0xccffffff;
 
 			UI(c_cmd) {
 				pad.size.h = {Size_Fit};
+				box = __this_box__;
 
 				UI(pad) {
 					string cmd_string = ed_command_string();
@@ -427,6 +427,9 @@ void entry_point(slice<string> args)
 			UI(pad);
 
 			ui_end_frame();
+			
+			draw_dropshadow(box->rect.from, box->rect.size, 30, g_config.theme.background_dim);
+
 			ui_draw();
 
 		}

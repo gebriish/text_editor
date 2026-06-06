@@ -399,6 +399,7 @@ funcdef void gfx_push_clip(Rect rect, Arena *frame_alloc);
 funcdef Render_Clip gfx_pop_clip();
 
 funcdef void draw_quad(vec2 pos, vec2 size, u32 color, u8 texture = Texture_White, vec2 uv0 = {0.5f,0.5f}, vec2 uv1 = {0.5f,0.5f}, ivec2 circ0 = {0,0}, ivec2 circ1 = {0,0});
+funcdef void draw_dropshadow(vec2 pos, vec2 size, f32 thickness, u32 color = Hex(0x000000FF));
 funcdef vec2 draw_text(string s, vec2 start_pos, u32 color);
 funcdef void draw_quad_rounded(vec2 pos, vec2 size, f32 radius, u32 color);
 funcdef void draw_capsule(vec2 pos, vec2 size, u32 color);
