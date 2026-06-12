@@ -91,7 +91,7 @@ os_prepare_frame(OS_Handle window)
 	OS_Input input = {};
 	RGFW_event event = {};
 
-	// RGFW_waitForEvent(-1);
+	RGFW_waitForEvent(-1);
 	while (RGFW_window_checkEvent(win, &event)) {
 		switch (event.type) {
 			case RGFW_windowResized: {
@@ -228,4 +228,19 @@ os_load_entire_file(Arena *arena, string path)
 	}
 
 	return data;
+}
+
+funcdef string
+file_kind_string(OS_FileKind kind)
+{
+	switch (kind) {
+	case OS_FileKind::C: case OS_FileKind::Cpp:
+		return S("C/C++");
+	case OS_FileKind::Text:
+		return S("Text");
+	case OS_FileKind::Bash:
+		return S("Bash");
+	default:
+		return S("<Unknown>");
+	}
 }

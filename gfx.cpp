@@ -196,7 +196,7 @@ gfx_init(OS_Handle window, Arena *persist, Arena *frame)
 				"float edge = aa + smoothness;"
 
 				"float alpha = 1.0f;"
-				"if (v_config.y < 0.5)"
+				"if (v_config.y < 0.5 && radius > 1.0)"
 					"alpha = smoothstep(0, -edge, d);"
 
 				"vec4 pixel;"

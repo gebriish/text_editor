@@ -408,3 +408,16 @@ label(string s, vec4 color, UI_SizeKind x_kind, UI_Align align)
 	};
 	return cfg;
 }
+
+
+funcdef UI_Config
+fit_container(vec4 color, UI_Padding pad, f32 radius)
+{
+	UI_Config cfg = {};
+	cfg.fill_color = color;
+	cfg.radius = radius;
+	cfg.size = {size_fit(), size_fit()};
+	cfg.padding = pad;
+
+	return cfg;
+}

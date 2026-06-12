@@ -73,6 +73,7 @@ buffer_init(Buffer *buffer, string path)
 	Load_Error err = Load_Ok;
 	{
 		OS_FileData file_data = os_file_data(path);
+		buffer->file_kind = file_data.kind;
 		if (!Flag_Check(file_data.flags, File_Exists)) {
 
 			buffer->data = list_make(alloc_slice(buffer->arena, u8, KB(512)));
@@ -80,7 +81,6 @@ buffer_init(Buffer *buffer, string path)
 			buffer__build_lines(buffer, 0);
 			return Load_Invalid_Path;
 		}
-		buffer->file_kind = file_data.kind;
 
 		bytes data = alloc_slice(buffer->arena, u8, Max(file_data.size * 2, KB(512)));
 		u64 len = 0;
@@ -347,21 +347,6 @@ buffer_slice(Buffer *buffer, Arena *arena, Range_u64 range) {
 
 ///////////////////////////////////////
 
-funcdef u64
-hash_path(string path)
-{
-    uint64_t h = 14695981039346656037ULL; 
-
-    const u8 *p = (const u8 *)path.raw;
-
-    for (size_t i = 0; i < path.len; ++i) {
-        h ^= p[i];
-        h *= 1099511628211ULL;
-    }
-
-    return h;
-}
-
 funcdef Buffer_Map
 buffer_map_make(Arena *arena, u64 capacity)
 {
@@ -405,13 +390,14 @@ buffer_map_insert(Buffer_Map *map, const Buffer& buffer)
 
 	slice<Buffer> table = map->table;
 	u64 capacity = table.len;
-	u64 index = hash_path(path) % capacity;
+	u64 index = hash_string(path) % capacity;
 
 	for(u64 i=0; i<capacity; ++i) {
 
 		if (!Flag_Check(table[index].flags, Buffer_Occupied)) {
 			table[index] = buffer;
 			Flag_Set(table[index].flags, Buffer_Occupied);
+			map->count += 1;
 			return &table[index];
 		}
 
@@ -431,7 +417,7 @@ buffer_map_get(Buffer_Map *map, string path)
 	path = os_path_canonical(t.arena, path);
 	slice<Buffer> table = map->table;
 	u64 capacity = table.len;
-	u64 index = hash_path(path) % capacity;
+	u64 index = hash_string(path) % capacity;
 
 	for(u64 i=0; i<capacity; ++i) {
 		Temp t2 = temp_begin(scratch());
@@ -462,7 +448,7 @@ buffer_map_remove(Buffer_Map *map, string path)
 	path = os_path_canonical(t.arena, path);
 	slice<Buffer> table = map->table;
 	u64 capacity = table.len;
-	u64 index = hash_path(path) % capacity;
+	u64 index = hash_string(path) % capacity;
 
 	for (u64 i=0; i<capacity; ++i) {
 		Temp t2 = temp_begin(scratch());
@@ -477,6 +463,7 @@ buffer_map_remove(Buffer_Map *map, string path)
 			buffer_deinit(&table[index]); // clears flags too
 		}
 
+		map->count -= 1;
 		index = (index + 1) % capacity;
 	}
 
@@ -541,12 +528,12 @@ draw_buffer_view(Buffer *buffer, Quad rect)
 
 	f32 max_scroll = Max(lines.len * line_h - rect.size.y, 0);
 	buffer->target_scroll_y = Clamp(buffer->target_scroll_y, 0, max_scroll);
-	buffer->scroll_y = Lerp(
-		buffer->scroll_y,
-		buffer->target_scroll_y,
-		1.0f - expf(-20.0f * delta_time())
-	);
-	// buffer->scroll_y = buffer->target_scroll_y;
+	// buffer->scroll_y = Lerp(
+	// 	buffer->scroll_y,
+	// 	buffer->target_scroll_y,
+	// 	1.0f - expf(-20.0f * delta_time())
+	// );
+	buffer->scroll_y = buffer->target_scroll_y;
 
 	// gutter
 

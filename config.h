@@ -6,7 +6,6 @@
 const f32 FONT_HEIGHT = 24.0f;
 const u64 TAB_WIDTH   = 2;
 
-
 global struct {
 	vec4 background         = color(0x1A1B1EFF);
 	vec4 foreground         = color(0xD8D9DAFF);
@@ -29,11 +28,9 @@ global struct {
 	vec4 error              = color(0xE06C75FF);
 	vec4 accent             = color(0x61AFEFFF);
 
-
 	f32  radius = 8.0f;
 } THEME;
 
-
-#include "embed.dat"
+#include "embed.data"
 
 #endif

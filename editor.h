@@ -121,6 +121,12 @@ typedef u32 rune;
 //////////////
 // ~gaureesh @NOTE: useful macro definitions
 
+struct Arena {
+	u64   reserved;
+	u64   committed;
+	u64   used;
+};
+
 #define funcdef       static
 #define local_persist static
 #define global        static
@@ -150,7 +156,7 @@ template<typename T> funcdef void clear(list<T> *l);
 
 
 funcdef u64 hash_string(string s);
-
+funcdef slice<string> fuzzy_filter(slice<string> src, string key, Arena *arena);
 
 //////////////
 // ~gaureesh @NOTE: cursed `defer` construct for c++
@@ -175,7 +181,6 @@ template<typename F> DeferImpl<F> defer_func(F &&f) { return DeferImpl<F>(forwar
 #define DEFER_NAME(base, line) TOKEN_PASTE(base, line)
 #define defer(code) auto DEFER_NAME(_defer_, __LINE__) = defer_func([&]() { code; })
 
-
 inline int
 digit_count_u64(u64 n) {
     int count = 1;
@@ -189,12 +194,6 @@ digit_count_u64(u64 n) {
 
 //////////////
 // ~gaureesh @NOTE: arena
-
-struct Arena {
-	u64   reserved;
-	u64   committed;
-	u64   used;
-};
 
 struct Temp {
 	Arena *arena;
@@ -290,8 +289,10 @@ enum class OS_FileKind : u32 {
 
 	C,
 	Cpp,
+	Bash,
 	Text,
 };
+funcdef string      file_kind_string(OS_FileKind kind);
 
 struct OS_FileData {
 	OS_FileFlags flags;
@@ -305,7 +306,7 @@ enum Load_Error {
 	Load_Access_Denied,
 	Load_Invalid_Path,
 	Load_Buffer_Overflow,
-	Load_IO_Error, // for all other type of errors
+	Load_IO_Error,
 	Load_Error_Count,
 };
 
@@ -492,6 +493,7 @@ funcdef void ui_draw();
 
 funcdef UI_Config gap(UI_Size size);
 funcdef UI_Config label(string s, vec4 color, UI_SizeKind x_size = Size_Fixed, UI_Align align = Align_Start);
+funcdef UI_Config fit_container(vec4 color, UI_Padding pad = {}, f32 radius = 0);
 
 ////////////////////////
 // ~gaureesh @NOTE: buffer
@@ -569,6 +571,7 @@ enum class Ed_Mode {
 	Normal,
 	Insert,
 	Command,
+	Buffer_Search,
 };
 
 enum Ed_CmdKind {
@@ -614,7 +617,9 @@ funcdef void ed_deinit();
 
 funcdef void ed_exec_command(Ed_Cmd command);
 funcdef string ed_command_string();
+
 funcdef slice<string> ed_command_strings(Arena *arena);
+funcdef slice<string> ed_open_buffers();
 
 funcdef Ed_Mode ed_mode();
 funcdef Buffer *ed_active();

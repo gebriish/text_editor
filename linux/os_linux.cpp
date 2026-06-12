@@ -57,6 +57,27 @@ os_file_data(string path)
 	defer(temp_end(t));
 
 	string cstr = string_to_cstring(scratch(&t), path);
+	char const *ext = nullptr;
+	for (char const *c = (char *)cstr.raw; *c; ++c) {
+		if (*c == '.') {
+			ext = c;
+		}
+	}
+
+	if (ext) {
+		if (strcasecmp(ext, ".c") == 0 || strcasecmp(ext, ".h") == 0) {
+			result.kind = OS_FileKind::C;
+		}
+		else if (strcasecmp(ext, ".cpp") == 0 || strcasecmp(ext, ".hpp") == 0) {
+			result.kind = OS_FileKind::Cpp;
+		}
+		else if (strcasecmp(ext, ".sh") == 0) {
+			result.kind = OS_FileKind::Bash;
+		}
+		else if (strcasecmp(ext, ".txt") == 0) {
+			result.kind = OS_FileKind::Text;
+		}
+	}
 
 	struct stat st;
 	if (stat((char *)cstr.raw, &st) != 0) {
@@ -74,25 +95,6 @@ os_file_data(string path)
 	}
 
 	result.size = (u64)st.st_size;
-
-	char const *ext = nullptr;
-	for (char const *c = (char *)cstr.raw; *c; ++c) {
-		if (*c == '.') {
-			ext = c;
-		}
-	}
-
-	if (ext) {
-		if (strcasecmp(ext, ".c") == 0) {
-			result.kind = OS_FileKind::C;
-		}
-		else if (strcasecmp(ext, ".cpp") == 0) {
-			result.kind = OS_FileKind::Cpp;
-		}
-		else if (strcasecmp(ext, ".txt") == 0) {
-			result.kind = OS_FileKind::Text;
-		}
-	}
 
 	return result;
 }

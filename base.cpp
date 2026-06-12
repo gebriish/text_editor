@@ -97,3 +97,31 @@ hash_string(string s)
     return h;
 }
 
+funcdef slice<string>
+fuzzy_filter(slice<string> src, string key, Arena *arena)
+{
+	if (!src.len)
+		return {};
+
+	if (!key.len)
+		return src;
+
+	list<string> matches = list_make(alloc_slice(arena, string, src.len));
+
+	// implementation
+	for (u64 i=0; i<src.len; ++i) {
+		string itr = src[i];
+
+		if (itr.len < key.len)
+			continue;
+
+		if (string_equal(itr.range(0,key.len), key)){
+			append(&matches, itr);
+		}
+	}
+
+	return slice<string> {
+		matches.raw,
+		matches.len
+	};
+}

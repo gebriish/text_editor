@@ -11,7 +11,7 @@ funcdef void *
 os_reserve(u64 size)
 {
 	void *result = VirtualAlloc(0, (SIZE_T)size, MEM_RESERVE, PAGE_NOACCESS);
-	return result; // NULL on failure – matches Linux behaviour
+	return result; // NULL on failure - matches Linux behaviour
 }
  
 funcdef bool
@@ -59,16 +59,6 @@ os_file_data(string path)
  
 	string cstr = string_to_cstring(scratch(&t), path);
 	if (!cstr.raw) return result;
- 
-	WIN32_FILE_ATTRIBUTE_DATA attrs;
-	if (!GetFileAttributesExA((LPCSTR)cstr.raw, GetFileExInfoStandard, &attrs))
-		return result;
- 
-	result.flags |= File_Exists;
- 
-	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-		result.flags |= File_Directory;
- 
 	const char *ext = nullptr;
 	for (const char *c = (const char *)cstr.raw; *c; ++c)
 		if (*c == '.') ext = c;
@@ -78,15 +68,24 @@ os_file_data(string path)
 		if (_stricmp(ext, ".exe") == 0 ||
 		    _stricmp(ext, ".bat") == 0 ||
 		    _stricmp(ext, ".cmd") == 0 ||
-		    _stricmp(ext, ".com") == 0)
-		{
+		    _stricmp(ext, ".com") == 0) {
 			result.flags |= File_Executable;
 		}
  
-		if      (_stricmp(ext, ".c")   == 0) result.kind = OS_FileKind::C;
-		else if (_stricmp(ext, ".cpp") == 0) result.kind = OS_FileKind::Cpp;
+		if      (_stricmp(ext, ".c")   == 0 || _stricmp(ext, ".h")   == 0) result.kind = OS_FileKind::C;
+		else if (_stricmp(ext, ".cpp") == 0 || _stricmp(ext, ".hpp") == 0) result.kind = OS_FileKind::Cpp;
+		else if (_stricmp(ext, ".sh") == 0) result.kind = OS_FileKind::Bash;
 		else if (_stricmp(ext, ".txt") == 0) result.kind = OS_FileKind::Text;
 	}
+ 
+	WIN32_FILE_ATTRIBUTE_DATA attrs;
+	if (!GetFileAttributesExA((LPCSTR)cstr.raw, GetFileExInfoStandard, &attrs))
+		return result;
+ 
+	result.flags |= File_Exists;
+ 
+	if (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		result.flags |= File_Directory;
  
 	ULARGE_INTEGER sz;
 	sz.LowPart  = attrs.nFileSizeLow;

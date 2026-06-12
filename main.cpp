@@ -4,6 +4,10 @@
 funcdef string format_user_input(rune codepoint, Ed_Cmd *post);
 funcdef Ed_Cmd parse_command (slice<string> args);
 
+funcdef void layout_editor_ui(Quad window);
+funcdef void layout_command_ui(Quad window);
+funcdef void layout_buffer_search_ui(Quad window);
+
 void entry_point(slice<string> args)
 {
 	os_init();
@@ -31,10 +35,11 @@ void entry_point(slice<string> args)
 
 		if (curr_mode == Ed_Mode::Normal) {
 			Ed_Cmd cmd = {};
-
 			switch (input.codepoint) {
-				case ':': cmd = change_mode(Ed_Mode::Command); break;
-				case 'i': cmd = change_mode(Ed_Mode::Insert); break;
+				case ':':  cmd = change_mode(Ed_Mode::Command); break;
+				case 'i':  cmd = change_mode(Ed_Mode::Insert); break;
+				case '\t': cmd = change_mode(Ed_Mode::Buffer_Search); break;
+
 				case 'h': cmd = move_cursor(Direction::Left, 1); break;
 				case 'j': cmd = move_cursor(Direction::Down, 1); break;
 				case 'k': cmd = move_cursor(Direction::Up, 1); break;
@@ -101,20 +106,51 @@ void entry_point(slice<string> args)
 			}
 
 			ed_exec_command(cmd);
-		}
-		else if (curr_mode == Ed_Mode::Command) {
+		} else if (curr_mode == Ed_Mode::Buffer_Search) {
+			switch (input.codepoint) {
+			case '\x1b': {
+				ed_exec_command(change_mode(Ed_Mode::Normal));
+			} break;
+
+			case '\x7F': case '\b': { // delete
+				Ed_Cmd cmd = delete_string(Direction::Left, 1);
+				ed_exec_command(cmd);
+			} break;
+
+			case '\n': {
+				Ed_Cmd cmd = {};
+
+				string cmd_string = ed_command_string();
+				slice<string> paths = ed_open_buffers();
+				paths = fuzzy_filter(paths, cmd_string, frame_arena());
+
+				if (paths.len > 0) {
+					cmd = open_buffer(paths.range(0,1));
+					ed_exec_command(cmd);
+				}
+
+				cmd = change_mode(Ed_Mode::Normal);
+				ed_exec_command(cmd);
+			} break;
+
+			default: {
+				if (!unicode_visual_rune(input.codepoint))
+					break;
+
+				Ed_Cmd cmd = insert_string(
+					utf8_encode(input.codepoint, frame_arena())
+				);
+				ed_exec_command(cmd);
+			} break;
+			}
+		} else if (curr_mode == Ed_Mode::Command) {
 			switch (input.codepoint) {
 				case '\x1b': {
 					Ed_Cmd cmd = change_mode(Ed_Mode::Normal);
 					ed_exec_command(cmd);
 				} break;
 
-				case '\x7F': { // delete
-					Ed_Cmd cmd = delete_string(Direction::Right, 1);
-					ed_exec_command(cmd);
-				} break;
-
-				case '\b': { // backspace
+				case '\x7F': case '\b': { // delete
 					Ed_Cmd cmd = delete_string(Direction::Left, 1);
 					ed_exec_command(cmd);
 				} break;
@@ -177,87 +213,15 @@ void entry_point(slice<string> args)
 			{ (f32) win_size.x, (f32) win_size.y }
 		};
 
-		UI_Config frame = {};
-		frame.flags = UI_Invisible;
-		frame.padding = Pad((u16) 4);
 
 		gfx_begin();
-		ui_begin_frame(window_rect, frame);
+	
+		layout_editor_ui(window_rect);
 
-		UI_Config panel = {};
-		UI_Box *panel_box = nullptr;
-		panel.size = { size_fill(1.0), size_fill(1.0) };
-		UI(panel) {
-			panel_box = __this_box__;
-		}
-
-		UI_Config status = {};
-		status.flags = UI_Clip_Children;
-		status.fill_color = THEME.background_dim;
-		status.border_color = THEME.border;
-		status.radius = THEME.radius;
-		status.size = { size_fill(1.0), size_fit() };
-		status.layout = Layout_Row;
-		status.padding = {4,8,4,4};
-		status.border = 1.0f;
-
-		UI(status) {
-			UI_Config mode = {};
-			mode.fill_color = THEME.border;
-			mode.radius = THEME.radius - 2;
-			mode.size = { size_fit(), size_fill(1.0) };
-			mode.padding = Pad_XY((u16) THEME.radius, 0);
-
-			UI(mode) {
-				UI(label(modal_string(curr_mode), THEME.background));
-			}
-
-			string left_string = S("");
-			if (ed_active()) {
-				left_string = ed_active()->path;
-			} else {
-				left_string = ed_directory();
-			} 
-			UI(label(left_string, THEME.foreground, Size_Fill, Align_End));
-		}
-
-		ui_end_frame();
-
-		draw_buffer_view(ed_active(), panel_box->rect);
-
-		ui_draw();
-
-		if (ed_mode() == Ed_Mode::Command) {
-			frame.padding = Pad_XY(0, (u16) (win_size.y * 0.14f));
-			frame.layout = Layout_Row;
-			ui_begin_frame(window_rect, frame);
-
-			UI(gap({size_fill(1.0), size_fill(1.0)}));
-
-
-			UI_Config cmd_line = {};
-			cmd_line.flags = UI_Drop_Shadow | UI_Clip_Children;
-			cmd_line.size = { size_fill(1.0), size_fit() };
-			cmd_line.radius = 10.0f;
-			cmd_line.fill_color = THEME.background_dim;
-			cmd_line.border_color = THEME.border;
-			cmd_line.border = 1.0f;
-			cmd_line.padding = Pad(10);
-			cmd_line.layout = Layout_Row;
-
-			UI(cmd_line) {
-				UI(label(ed_command_string(), THEME.gutter_foreground));
-				UI_Config cursor = {};
-				cursor.size = { size_fixed(3), size_fill(1) };
-				cursor.fill_color = THEME.gutter_foreground;
-				UI(cursor);
-			}
-
-
-			UI(gap({size_fill(1.0), size_fill(1.0)}));
-
-			ui_end_frame();
-			ui_draw();
+		switch (ed_mode()) {
+			case Ed_Mode::Command : layout_command_ui(window_rect); break;
+			case Ed_Mode::Buffer_Search : layout_buffer_search_ui(window_rect); break;
+			default : break;
 		}
 
 		gfx_end();
@@ -377,4 +341,176 @@ parse_command (slice<string> args)
 	}
 
 	return {};
+}
+
+
+funcdef void
+layout_editor_ui(Quad window)
+{
+	UI_Config frame = {};
+	frame.flags = UI_Invisible;
+	frame.padding = Pad((u16) 4);
+
+	ui_begin_frame(window, frame);
+	UI_Box *panel_box;
+
+	//
+	// panel view
+	//
+
+	UI_Config panel = {};
+	panel.size = {size_fill(1), size_fill(1)};
+
+	UI(panel) {
+		panel_box = __this_box__;
+	}
+
+	//
+	// status line
+	//
+
+	UI_Config status = {};
+	status.flags = UI_Clip_Children;
+	status.fill_color = THEME.background_dim;
+	status.border_color = THEME.border;
+	status.radius = THEME.radius;
+	status.size = {size_fill(1.0), size_fit()};
+	status.layout = Layout_Row;
+	status.padding = Pad(4);
+	status.border = 1.0f;
+	status.gap = 4.0;
+
+	Ed_Mode mode = ed_mode();
+
+	UI(status) {
+		UI(fit_container(THEME.accent, Pad_XY(4, 0), THEME.radius - 4)) {
+			UI(label(modal_string(mode), THEME.background));
+		}
+		
+		UI(gap({size_fill(1.0), size_fill(1.0)}));
+
+		if (ed_active()) {
+			UI(label(ed_active()->path, THEME.foreground));
+			UI(fit_container(THEME.accent, Pad_XY(4, 0), THEME.radius - 4)) {
+				UI(label(file_kind_string(ed_active()->file_kind), THEME.background));
+			}
+		} else {
+			UI(fit_container(THEME.gutter_foreground, Pad_XY(4, 0), THEME.radius - 4))
+				UI(label(ed_directory(), THEME.background));
+		} 
+
+	}
+	ui_end_frame();
+	
+	draw_buffer_view(ed_active(), panel_box->rect);
+
+	ui_draw();
+}
+
+funcdef void
+layout_command_ui(Quad window)
+{
+	UI_Config frame = {};
+	frame.flags = UI_Invisible;
+	frame.padding = Pad_XY(0, (u16) (window.size.y * 0.14f));
+	frame.layout = Layout_Row;
+
+	ui_begin_frame(window, frame);
+
+	UI(gap({size_fill(0.6f), size_fill(1.0)}));
+
+	//
+	// actual command line box
+	//
+
+	UI_Config cmd_line = {};
+	cmd_line.flags = UI_Drop_Shadow | UI_Clip_Children;
+	cmd_line.size = { size_fill(1.0), size_fit() };
+	cmd_line.radius = 10.0f;
+	cmd_line.fill_color = THEME.background_dim;
+	cmd_line.border_color = THEME.border;
+	cmd_line.border = 1.0f;
+	cmd_line.padding = Pad(10);
+	cmd_line.layout = Layout_Row;
+
+	UI(cmd_line) {
+		UI(label(ed_command_string(), THEME.gutter_foreground));
+		UI_Config cursor = {};
+		cursor.size = { size_fixed(2), size_fill(1) };
+		cursor.fill_color = THEME.cursor;
+		UI(cursor);
+	}
+
+	UI(gap({size_fill(0.6f), size_fill(1.0)}));
+
+	ui_end_frame();
+	ui_draw();
+}
+
+
+funcdef void
+layout_buffer_search_ui(Quad window)
+{
+	UI_Config frame = {};
+	frame.flags = UI_Invisible;
+	frame.padding = Pad_XY(0, (u16) (window.size.y * 0.14f));
+	frame.layout = Layout_Row;
+
+	ui_begin_frame(window, frame);
+
+	UI(gap({size_fill(0.6), size_fill(1.0)}));
+
+	//
+	// main buffer search ui
+	//
+
+	UI_Config search_panel = {};
+	search_panel.flags = UI_Drop_Shadow | UI_Clip_Children;
+	search_panel.size = { size_fill(1.0), size_fill() };
+	search_panel.radius = 10.0f;
+	search_panel.fill_color = THEME.background_dim;
+	search_panel.border_color = THEME.border;
+	search_panel.border = 1.0f;
+	search_panel.padding = Pad(10);
+	search_panel.layout = Layout_Col;
+	search_panel.gap = 4;
+
+	UI(search_panel) {
+		UI_Config search_box = {};
+		search_box.flags = UI_Invisible;
+		search_box.size = { size_fill(1), size_fit() };
+		search_box.layout = Layout_Row;
+
+		string cmd_string = ed_command_string();
+
+		//
+		// search box
+		//
+
+		UI(search_box) {
+			UI(label(cmd_string, THEME.foreground));
+
+			UI_Config cursor = {};
+			cursor.size = { size_fixed(2), size_fill(1) };
+			cursor.fill_color = THEME.cursor;
+			UI(cursor);
+		}
+
+		//
+		// results
+		//
+
+		slice<string> paths = ed_open_buffers();
+		paths = fuzzy_filter(paths, cmd_string, frame_arena());
+
+		for (u64 i=0; i<paths.len; ++i) {
+			string path_str = paths[i];
+			UI(label(path_str, THEME.gutter_foreground));
+		}
+	}
+
+	UI(gap({size_fill(0.6), size_fill(1.0)}));
+
+	ui_end_frame();
+	ui_draw();
 }

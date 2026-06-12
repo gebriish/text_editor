@@ -14,6 +14,10 @@ global struct {
 
 	list<u8> cmd_string;
 	Buffer_Map buffer_map;
+
+
+	slice<string> open_buffers;
+
 } ed_ctx;
 
 
@@ -75,6 +79,7 @@ modal_string(Ed_Mode mode)
 		case Ed_Mode::Normal:  return S("normal");
 		case Ed_Mode::Insert:  return S("insert");
 		case Ed_Mode::Command: return S("command");
+		case Ed_Mode::Buffer_Search: return S("buffer search");
 	}
 
 	return {};
@@ -91,6 +96,17 @@ funcdef slice<string>
 ed_command_strings(Arena *arena)
 {
 	return string_split(ed_ctx.cmd_string.view(), arena);
+}
+
+funcdef slice<string>
+ed_open_buffers()
+{
+	if (ed_ctx.open_buffers.raw == nullptr) {
+		// called when outside buffer search mode, can frame allocate for now.
+		return buffer_map_get_paths(&ed_ctx.buffer_map, ed_ctx.frame_arena);
+	}
+
+	return ed_ctx.open_buffers;
 }
 
 funcdef void
@@ -120,8 +136,7 @@ ed_exec_command(Ed_Cmd cmd)
 			}
 		} break;
 
-		case Cmd_Buffer_Close:
-		{
+		case Cmd_Buffer_Close: {
 			slice<string> paths = cmd.arg_strings;
 			bool closed_active = false;
 
@@ -159,8 +174,7 @@ ed_exec_command(Ed_Cmd cmd)
 			}
 		} break;
 
-        case Cmd_Buffer_Save:
-        {
+        case Cmd_Buffer_Save: {
 			Buffer *active = ed_active();
 			if (!active)
 				break;
@@ -178,53 +192,59 @@ ed_exec_command(Ed_Cmd cmd)
 			}
         } break;
 
-		case Cmd_Mode_Change:
-		{
+		case Cmd_Mode_Change: {
 			arena_free(ed_ctx.modal_arena);	
-
+			ed_ctx.open_buffers = {};
+			ed_ctx.cmd_string = {};
+			ed_ctx.mode = cmd.arg_mode;
 
 			switch(cmd.arg_mode) {
-				case Ed_Mode::Insert:
-					if (ed_active() == nullptr)
-						return;
-					break;
-				case Ed_Mode::Command:
-					ed_ctx.cmd_string = list_make(
-						alloc_slice(ed_ctx.modal_arena, u8, 128)
-					);
-					break;
-				default:
-					break;
-			}
+			case Ed_Mode::Insert:
+				if (ed_active() == nullptr)
+					return;
+			break;
 
-			clear(&ed_ctx.cmd_string);
-			ed_ctx.mode = cmd.arg_mode;
+			case Ed_Mode::Command:
+				ed_ctx.cmd_string = list_make(alloc_slice(ed_ctx.modal_arena, u8, 128));
+			break;
+
+			case Ed_Mode::Buffer_Search:
+				ed_ctx.open_buffers = buffer_map_get_paths(
+					&ed_ctx.buffer_map,
+					ed_ctx.modal_arena
+				);
+				ed_ctx.cmd_string = list_make(
+					alloc_slice(ed_ctx.modal_arena, u8, 128)
+				);
+			break;
+			default: break;
+			}
 		} break;
 
 		case Cmd_Cursor_Move:
 			buffer_move_cursor(ed_ctx.active_buffer, cmd.arg_u64, cmd.arg_dir);
-			break;
+		break;
 
-		case Cmd_Insert_String:
-			if (ed_mode() == Ed_Mode::Command) {
+		case Cmd_Insert_String: {
+			Ed_Mode mode = ed_mode();
+			if (mode == Ed_Mode::Command || mode == Ed_Mode::Buffer_Search) {
 				bytes input_bytes = {(u8 *)cmd.arg_string.raw, cmd.arg_string.len};
 				append_slice(&ed_ctx.cmd_string, input_bytes);
 			} else {
 				buffer_insert(ed_ctx.active_buffer, cmd.arg_string);
 			}
-			break;
+		} break;
 
 		case Cmd_Delete_String:
-			if (ed_mode() == Ed_Mode::Command) {
+			if (ed_mode() == Ed_Mode::Command || ed_mode() == Ed_Mode::Buffer_Search) {
 				if (ed_ctx.cmd_string.len > 0)	
 					ed_ctx.cmd_string.len -= 1;
 			} else {
 				buffer_delete(ed_ctx.active_buffer, cmd.arg_u64, cmd.arg_dir);
 			}
-			break;
+		break;
 
-		case Cmd_Jump_To_Line:
-		{
+		case Cmd_Jump_To_Line: {
 			Buffer *buf = ed_active();
 			u64 line_index = Min(cmd.arg_u64, buf->lines.len);
 			if (line_index > 0)
@@ -234,15 +254,13 @@ ed_exec_command(Ed_Cmd cmd)
 			buffer_move_cursor(buf, range.begin, Direction::Absolute);
 		} break;
 
-        case Cmd_Workspace_Open:
-        {
+        case Cmd_Workspace_Open: {
 			string path = cmd.arg_string;
 			os_set_working_dir(path);
 			ed__init_workspace();
         } break;
 
-        case Cmd_Exit:
-        {
+        case Cmd_Exit: {
         } break;
 
         default: break;

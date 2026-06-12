@@ -1,0 +1,55 @@
+# editor config
+
+font_height 24.0
+tab_width   2
+
+# theme
+
+background        1A1B1EFF
+foreground        D8D9DAFF
+background_dim    121316FF
+
+cursor            B3E65AFF
+cursor_text       1A1B1EFF
+
+line_highlight    25272CFF
+current_line      2E3138FF
+
+gutter            16171AFF
+gutter_foreground 6B7078FF
+
+border            353941FF
+
+status_line       25272CFF
+status_line_dim   1C1D21FF
+
+error             E06C75FF
+accent            61AFEFFF
+
+# bindings - universal
+
+command_mode       :
+insert_mode        i
+buffer_search_mode Tab
+normal_mode        Esc
+
+# bindings - normal mode
+
+cursor_left       h
+cursor_down       j
+cursor_up         k
+cursor_right      l
+
+scroll_down       J
+scroll_up         K
+
+jump_to_end_of_file      G
+jump_to_start_of_line    0
+jump_to_end_of_line      $
+jump_to_first_non_white  _
+
+insert_at_end_of_line     A
+insert_at_first_non_white I
+
+increase_font_size  +
+decrease_font_size  -
